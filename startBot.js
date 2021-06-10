@@ -11,21 +11,22 @@ const Web3 = require('web3');
 const abi = require('human-standard-token-abi');
 const {ChainId, Token, TokenAmount, Fetcher: v2Fetcher, Pair, Route, Trade, TradeType, Percent} = require('@pancakeswap-libs/sdk-v2');
 const {JsonRpcProvider} = require("@ethersproject/providers");
-const url = 'https://bsc-dataseed1.binance.org/';
-const provider = new JsonRpcProvider('https://bsc-dataseed1.binance.org/');
-const web3 = new Web3(url);
 
 // To get the trade settings
 const {tradeParameters} = require('./trading.params.js');
 const {globalParams} = require('./global.params.js');
 const {checkVariableValidity, checkInitialSettings, verboseTradeDescription} = require('./input-checks.js');
 
+const url = globalParams._rpcurl;
+const provider = new JsonRpcProvider(url);
+const web3 = new Web3(url);
+
 // other functions
 const d = new Date();
 const dateStamp = d.getFullYear()*10000 + (d.getMonth() + 1) *100 + d.getDate();
 const {confirmDialog, appendTradeLog, delay} = require('./tradelog-code.js');
 const fs = require("fs");
-const tradingParams = require("./trading.params.js");
+//const tradingParams = require("./trading.params.js");
 const maxUint256 = web3.utils.toBN(2).pow(web3.utils.toBN(256)).sub(web3.utils.toBN(1));
 
 const wallet = ethers.Wallet.fromMnemonic(secretKey);
@@ -147,11 +148,11 @@ const getViaBNBBid = async (buyAddress, buyDecimals, sellAddress, sellDecimals, 
 // FUNCTIONS WRITING TO THE CHAIN
 // ******************************
 
-const getApproval = async (thisTokenAddress, approvalAmount, walletAccount, liquidtyPoolRouter = lpRouter, thisGasPrice, thisGasLimit)  => {
+const getApproval = async (thisTokenAddress, appprovalLimit, walletAccount, liquidtyPoolRouter = lpRouter, thisGasPrice, thisGasLimit)  => {
     let contract = new ethers.Contract(thisTokenAddress, abi, walletAccount);
     let approveResponse = await contract.approve(
         liquidtyPoolRouter, 
-        approvalAmount,
+        appprovalLimit,
         {
             gasLimit: thisGasLimit, 
             gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
@@ -258,7 +259,7 @@ const confirmAndExtendAllowance = async (thisTokenAddress, walletAddress, liquid
         let currentAllowance = await getAllowance(thisTokenAddress, walletAddress, liquidityPoolAddress);
         if (currentAllowance < maxUint256) {
             console.log(`Getting approval for ${thisTokenTicker}`)
-            await getApproval(thisTokenAddress, maxUint256, account, globalParams._pcsLPV2, globalParams._gasPrice, globalParams._gasApprovalAmount);
+            await getApproval(thisTokenAddress, maxUint256, account, globalParams._pcsLPV2, globalParams._gasPrice, globalParams._gasAppprovalLimit);
             return true;
         } else {
             console.log(`No Approval needed for ${thisTokenTicker}`)
@@ -679,8 +680,8 @@ const executeTSL = async (thisTradePair, newPrice, logstream) => {
         buyPrice = newPrice * (1 + thisTradePair.buySTOPPctTSL / 100);
         sellPrice = newPrice * (1 - thisTradePair.sellSTOPPctTSL / 100);
     } else {
-        buyPrice = Math.min(thisTradePair.buyPricePRT, newPrice * (1 + thisTradePair.buySTOPPctTSL / 100));
-        sellPrice = Math.max(thisTradePair.sellPricePRT, newPrice * (1 - thisTradePair.sellSTOPPctTSL / 100));
+        buyPrice = Math.min(thisTradePair.buyPriceTSL, newPrice * (1 + thisTradePair.buySTOPPctTSL / 100));
+        sellPrice = Math.max(thisTradePair.sellPriceTSL, newPrice * (1 - thisTradePair.sellSTOPPctTSL / 100));
     };
     tradeParameters[thisTradePair.pairname].buyPriceTSL = buyPrice;
     tradeParameters[thisTradePair.pairname].sellPriceTSL = sellPrice;

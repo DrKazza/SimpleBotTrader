@@ -1,7 +1,7 @@
 // PLEASE READ THE COMMENTS AT THE END IF YOU DON'T KNOW WHAT THESE PARAMETERS MEAN
-// Some coin tokens:
+// Some BSC coin tokens:
 // CAKE = 0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82
-// BUSD = 0xe9e7cea3dedca5984780bafc599bd69add087d56
+// BUSD = 0xe9e7cea3dedca5984780bafc599bd69add087d56 
 // BUNNY = 0xc9849e6fdb743d08faee3e34dd2d1bc69ea11a51
 // BMXX = 0x4131b87f74415190425ccd873048c708f8005823 (BSC Version)
 // AUTO = 0xa184088a740c695e156f91f5cc086a06bb78b827
@@ -11,7 +11,7 @@
 // BFI = 0x81859801b01764d4f0fa5e64729f5a6c3b91435b (BEARNFI)
 // WATCH = 0x7a9f28eb62c791422aa23ceae1da9c847cbec9b0
 // ICE = 0xf16e81dce15b08f326220742020379b855b87df9
-// KILI = 0x865d0c78d08bd6e5f0db6bcbf36d3f8eb4ad48f8  (DO NOT USE - shitcoin)
+// KILI = 0x865d0c78d08bd6e5f0db6bcbf36d3f8eb4ad48f8 
 // CODEX = 0x9e95cb3d0560f9cba88991f828322526851bfb56 (Caution v low trading volumes)
 
 const tradeParameters = {

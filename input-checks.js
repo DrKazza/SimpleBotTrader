@@ -36,12 +36,12 @@ const checkVariableValidity = (globalParams, thisTradeParams) => {
             isBadVariable(`_bidToMidSlippage`, `Needs to be 0 or higher you'll never trade at mid.`);
             return false;
         }
-        if (!isNumberMoreThanEq(globalParams._gasApprovalAmount, 70000)) {
-            isBadVariable(`_gasApprovalAmount`, `Needs to be 70,000 or higher to get approvals done`);
+        if (!isNumberMoreThanEq(globalParams._gasApprovalLimit, 70000)) {
+            isBadVariable(`_gasApprovalLimit`, `Needs to be 70,000 or higher to get approvals done`);
             return false;
         }
-        if (!isNumberMoreThanEq(globalParams._gasTradingAmount, 170000)) {
-            isBadVariable(`_gasTradingAmount`, `Needs to be 170,000 or higher to go through`);
+        if (!isNumberMoreThanEq(globalParams._gasTradingLimit, 170000)) {
+            isBadVariable(`_gasTradingLimit`, `Needs to be 170,000 or higher to go through`);
             return false;
         }
         if (!isNumberMoreThanEq(globalParams._gasPrice, 5)) {
