@@ -1,0 +1,3 @@
+# SimpleBotTrader
+
+READ THE INSTRUCTIONS.PDF!!!
