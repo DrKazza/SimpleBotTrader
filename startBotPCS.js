@@ -8,14 +8,15 @@ const walletAddress = process.env.WALLETADDRESS;
 // BSC & PCS Libraries
 const ethers = require('ethers');
 const Web3 = require('web3');
+const BN = Web3.utils.BN;
 const abi = require('human-standard-token-abi');
-const {ChainId, Token, TokenAmount, Fetcher: v2Fetcher, Pair, Route, Trade, TradeType, Percent} = require('@pancakeswap-libs/sdk-v2');
+const {ChainId, Token, TokenAmount, Fetcher: v2Fetcher, Pair, Route, Trade, TradeType, Percent} = require('@pancakeswap-libs/sdk');
 const {JsonRpcProvider} = require("@ethersproject/providers");
 
 // To get the trade settings
-const {tradeParameters} = require('./trading.params.js');
-const {globalParams} = require('./global.params.js');
-const {checkVariableValidity, checkInitialSettings, verboseTradeDescription} = require('./input-checks.js');
+const {tradeParameters} = require('./trading.paramsPCS.js');
+const {globalParams} = require('./global.paramsPCS.js');
+const {checkVariableValidity, checkInitialSettings, verboseTradeDescription} = require('./input-checksPCS.js');
 
 const url = globalParams._rpcurl;
 const provider = new JsonRpcProvider(url);
@@ -26,7 +27,6 @@ const d = new Date();
 const dateStamp = d.getFullYear()*10000 + (d.getMonth() + 1) *100 + d.getDate();
 const {confirmDialog, appendTradeLog, delay} = require('./tradelog-code.js');
 const fs = require("fs");
-//const tradingParams = require("./trading.params.js");
 const maxUint256 = web3.utils.toBN(2).pow(web3.utils.toBN(256)).sub(web3.utils.toBN(1));
 
 const wallet = ethers.Wallet.fromMnemonic(secretKey);
@@ -120,6 +120,7 @@ const getDirectBid = async (buyAddress, buyDecimals, sellAddress, sellDecimals, 
         let route = new Route([pair], SELLTOK);
         let trade = new Trade(route, new TokenAmount(SELLTOK, sellAmount), TradeType.EXACT_INPUT)
         let bidPrice = await trade.executionPrice.toSignificant(6);
+        console.log (`direct bid: ${bidPrice}`)
         return bidPrice
     } catch (error) {
         console.log (`no direct bid`)
@@ -137,6 +138,7 @@ const getViaBNBBid = async (buyAddress, buyDecimals, sellAddress, sellDecimals, 
         let route = new Route([pair1, pair2], SELLTOK);
         let trade = new Trade(route, new TokenAmount(SELLTOK, sellAmount), TradeType.EXACT_INPUT)
         let bidPrice = await trade.executionPrice.toSignificant(6);
+        console.log (`viabnb bid: ${bidPrice}`)
         return bidPrice
     } catch (error) {
         console.log (`no bid via BNB (that's a bit odd!)`)
@@ -148,11 +150,11 @@ const getViaBNBBid = async (buyAddress, buyDecimals, sellAddress, sellDecimals, 
 // FUNCTIONS WRITING TO THE CHAIN
 // ******************************
 
-const getApproval = async (thisTokenAddress, appprovalLimit, walletAccount, liquidtyPoolRouter = lpRouter, thisGasPrice, thisGasLimit)  => {
+const getApproval = async (thisTokenAddress, approvalLimit, walletAccount, liquidtyPoolRouter = lpRouter, thisGasPrice, thisGasLimit)  => {
     let contract = new ethers.Contract(thisTokenAddress, abi, walletAccount);
     let approveResponse = await contract.approve(
         liquidtyPoolRouter, 
-        appprovalLimit,
+        approvalLimit,
         {
             gasLimit: thisGasLimit, 
             gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
@@ -178,7 +180,7 @@ const swapExactBNBForTokens = async (buyAddress, tokensIn, tradeSlippage, thisGa
     )
     console.log(`Transaction Submitted...`);
     let receipt = await tx.wait();
-    console.log(receipt);
+    // console.log(receipt);
     return receipt;
 }
 
@@ -199,7 +201,7 @@ const swapExactTokensForBNB = async (sellAddress, tokensIn, tradeSlippage, thisG
     )
     console.log(`Transaction Submitted...`);
     let receipt = await tx.wait();
-    console.log(receipt);
+    // console.log(receipt);
     return receipt;
 }
 
@@ -220,7 +222,7 @@ const swapExactTokForTok = async (buyAddress, sellAddress, tokensIn, tradeSlippa
     )
     console.log(`Transaction Submitted...`);
     let receipt = await tx.wait();
-    console.log(receipt);
+    // console.log(receipt);
     return receipt;
 }
 
@@ -241,7 +243,7 @@ const swapExactTokForTokViaBNB = async (buyAddress, sellAddress, tokensIn, trade
     )
     console.log(`Transaction Submitted...`);
     let receipt = await tx.wait();
-    console.log(receipt);
+    // console.log(receipt);
     return receipt;
 }
 
@@ -254,12 +256,20 @@ const swapExactTokForTokViaBNB = async (buyAddress, sellAddress, tokensIn, trade
 // HANDLER FUNCTIONS
 // *****************
 
+const getPairBalances = async (buyTokenAddress, sellTokenAddress, walletAddress) => {
+    let [buyBalance, sellBalance] = await Promise.all([
+        getWalletBalance(buyTokenAddress, walletAddress),
+        getWalletBalance(sellTokenAddress, walletAddress)
+    ]);
+    return [buyBalance, sellBalance]
+}
+
 const confirmAndExtendAllowance = async (thisTokenAddress, walletAddress, liquidityPoolAddress, thisTokenTicker) => {
     if (thisTokenAddress === wbnbAddress) { return true; } else {        
         let currentAllowance = await getAllowance(thisTokenAddress, walletAddress, liquidityPoolAddress);
         if (currentAllowance < maxUint256) {
             console.log(`Getting approval for ${thisTokenTicker}`)
-            await getApproval(thisTokenAddress, maxUint256, account, globalParams._pcsLPV2, globalParams._gasPrice, globalParams._gasAppprovalLimit);
+            await getApproval(thisTokenAddress, maxUint256, account, globalParams._pcsLPV2, globalParams._gasPrice, globalParams._gasApprovalLimit);
             return true;
         } else {
             console.log(`No Approval needed for ${thisTokenTicker}`)
@@ -270,20 +280,31 @@ const confirmAndExtendAllowance = async (thisTokenAddress, walletAddress, liquid
 
 
 const getMidPrice = async (buyAddress, buyDecimals, sellAddress, sellDecimals) => {
-    if (buyAddress === wbnbAddress || sellAddress === wbnbAddress) {
-        let midPrice = await getDirectMid (buyAddress, buyDecimals, sellAddress, sellDecimals);
-        return midPrice;
-    } else {
-        let midPrice = await getViaBNBMid (buyAddress, buyDecimals, sellAddress, sellDecimals);
-        return midPrice;
+    try {
+        if (buyAddress === wbnbAddress || sellAddress === wbnbAddress) {
+            let midPrice = await getDirectMid (buyAddress, buyDecimals, sellAddress, sellDecimals);
+            return midPrice;
+        } else {
+            let midPrice = await getViaBNBMid (buyAddress, buyDecimals, sellAddress, sellDecimals);
+            return midPrice;
 
+        }
+    } catch (error) {
+        return -1
     }
 }
 
 const amountToSell = (assetAddress, assetDecimals, assetBalance, moonBag) => {
+    let amtToSell = new BN(assetBalance);
     let dontSell = ethers.utils.parseUnits(moonBag.toString(), assetDecimals);
-    if (assetAddress === wbnbAddress) { dontSell += ethers.utils.parseUnits(globalParams._keepBNB.toString(), 18) }
-    return Math.max(assetBalance - dontSell, 0);
+    if (assetAddress === wbnbAddress) { dontSell.add(ethers.utils.parseUnits(globalParams._keepBNB.toString(), 18)) }
+    if (dontSell == 0) {
+        return amtToSell
+    } else if (dontSell >= amtToSell) {
+        return 0
+    } else {
+        return amtToSell.sub(dontSell)
+    } 
 }
 
 const getBnbEquivalent = async (thisTokenAddress, thisTokenDecimals, tokenAmount) => {
@@ -299,20 +320,18 @@ const getBestPrice = async (buyAddress, buyDecimals, sellAddress, sellDecimals, 
     // returns an array of [best bid, best route]
     let bestRoute = 'Direct';
     let bestBid = await getDirectBid (buyAddress, buyDecimals, sellAddress, sellDecimals, sellAmount);
-    console.log(bestBid + 'Direct Best Bid')
+    console.log(bestBid + ' Direct Best Bid')
     if (buyAddress === wbnbAddress || sellAddress === wbnbAddress) {
         return [1 / bestBid, bestRoute];
     } else {
         let viaBNBBid = await getViaBNBBid (buyAddress, buyDecimals, sellAddress, sellDecimals, sellAmount);
-        console.log(bestBid + 'via BNB Best Bid')
 
-        if (viaBNBBid < bestBid || bestBid <= 0) {
+        if (viaBNBBid > bestBid || bestBid <= 0) {
             bestBid = viaBNBBid;
             bestRoute = 'viaBNB'
         }
         return [1 / bestBid, bestRoute];
         // you return 1 / best bid to get the price
-// NEED TO CHECK THIS LOGIC FOR A BUY AS WELL AS A SELL!        
     }
 }
 
@@ -327,10 +346,8 @@ const executeTrade = async (buyAddress, sellAddress, amountToSpend, executionSli
     } else {
         receipt = await swapExactTokForTok(buyAddress, sellAddress, amountToSpend, executionSlippage, gasPrice, gasTradingLimit);
     }
-    appendTradeLog(logstream, receipt);
+//    appendTradeLog(logstream, receipt);
 }
-
-
 
 
 // *******************************************
@@ -343,16 +360,17 @@ const executeTrade = async (buyAddress, sellAddress, amountToSpend, executionSli
 const executeBSPL = async (thisTradePair, newPrice, logstream) => {
     let buyPrice = thisTradePair.buyPrice
     let sellPrice = thisTradePair.sellPrice 
-
+    let initialBalances = [0, 0];
     if (buyPrice <= 0 || buyPrice < newPrice) {
         // don't try to buy anything
     } else {
-        let sellAssetBalance = await getWalletBalance(thisTradePair.sellAddress, walletAddress);
+        initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let sellAssetBalance = initialBalances[1];
         let amountToSpend = amountToSell(thisTradePair.sellAddress, thisTradePair.sellDecimals, sellAssetBalance, thisTradePair.sellMoonBag);
         let bnbEquivalent = await getBnbEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
         if (bnbEquivalent < minBnbToTrade) {
             // amount to trade is too small - don't bother, also don't output this to the logfile
-            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB Equivalents\n`);
+            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
             return;
         }
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
@@ -367,12 +385,23 @@ const executeBSPL = async (thisTradePair, newPrice, logstream) => {
         if (thisTradePair.overrideSlippage > 0) {
             let thisbidToMidSlippage = Math.abs(newPrice - bestPriceAndRoute[0])*100/newPrice;
             if (thisbidToMidSlippage > globalParams._bidToMidSlippage) {
-                appendTradeLog(logstream, `Price impact of the size of this trade is too big ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
+                appendTradeLog(logstream, `Price impact of the size of this trade is too big Price: ${bestPriceAndRoute[0]} Slippage: ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
                 return;
             }
         }
-        appendTradeLog(logstream, ` Aboutto hit up a buy trade hoping for ${bestPriceAndRoute[0]}`);
+        appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
         await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress);
+        let actualPurchase = new BN(finalBalances[0]);
+        actualPurchase = (actualPurchase - initialBalances[0]) / (10 ** thisTradePair.buyDecimals);
+        let actualSale = new BN(initialBalances[1]);
+        actualSale = (actualSale - finalBalances[1]) / (10 ** thisTradePair.sellDecimals);
+        appendTradeLog(logstream, `********************
+        Purchase successful:
+        ********************
+        Bought ${actualPurchase.toPrecision(6)} (${thisTradePair.buyTicker})
+        Sold ${actualSale.toPrecision(6)} (${thisTradePair.sellTicker})
+        effective price: ${(actualSale / actualPurchase).toPrecision(6)}`);
     }
 
 
@@ -380,18 +409,20 @@ const executeBSPL = async (thisTradePair, newPrice, logstream) => {
         // don't try to sell anything
     } else {
         // remember you're now selling the 'Buy asset' and that the price that comes back from the router needs to be inverted
-        let buyAssetBalance = await getWalletBalance(thisTradePair.buyAddress, walletAddress);
+        initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let buyAssetBalance = initialBalances[0];
         let amountToSpend = amountToSell(thisTradePair.buyAddress, thisTradePair.buyDecimals, buyAssetBalance, thisTradePair.buyMoonBag);
         let bnbEquivalent = await getBnbEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
         if (bnbEquivalent < minBnbToTrade) {
             // amount to trade is too small - don't bother
-            appendTradeLog(logstream, `Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB Equivalents\n`);
+            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
             return;
         } 
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
         appendTradeLog(logstream, `Selling ${textAmountToSpend} ${thisTradePair.buyTicker} tokens for ${thisTradePair.sellTicker}\n`);
         // look at the mid and compare to direct bid and viabnb bid (if appropriate)
         let bestPriceAndRoute = await getBestPrice(thisTradePair.sellAddress, thisTradePair.sellDecimals, thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
+        bestPriceAndRoute[0] = 1 / bestPriceAndRoute[0];
         if (bestPriceAndRoute[0] === -1) {
             appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
             tradeParameters[thisTradePair.pairname].activate = false;
@@ -400,12 +431,23 @@ const executeBSPL = async (thisTradePair, newPrice, logstream) => {
         if (globalParams._bidToMidSlippage > 0) {
             let thisbidToMidSlippage = Math.abs(newPrice - bestPriceAndRoute[0])*100/newPrice;
             if (thisbidToMidSlippage > globalParams._bidToMidSlippage) {
-                appendTradeLog(logstream, `Price impact of the size of this trade is too big ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
+                appendTradeLog(logstream, `Price impact of the size of this trade is too big Price: ${bestPriceAndRoute[0]} Slippage:  ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
                 return;
             }
         }
-        appendTradeLog(logstream, ` Aboutto hit up a sell trade hoping for ${bestPriceAndRoute[0]}`);
+        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
         await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let actualPurchase = new BN(finalBalances[1])
+        actualPurchase = (actualPurchase - initialBalances[1]) / (10 ** thisTradePair.sellDecimals)
+        let actualSale = new BN(initialBalances[0]) 
+        actualSale = (actualSale - finalBalances[0]) / (10 ** thisTradePair.buyDecimals)
+        appendTradeLog(logstream, `****************
+        Sale successful:
+        ****************
+        Sold ${actualSale.toPrecision(6)} (${thisTradePair.buyTicker})
+        Bought ${actualPurchase.toPrecision(6)} (${thisTradePair.sellTicker})
+        effective price: ${(actualPurchase / actualSale).toPrecision(6)}`);
     }
 }
 
@@ -419,6 +461,7 @@ const executeBSPL = async (thisTradePair, newPrice, logstream) => {
 const executeDCB = async (thisTradePair, newPrice, logstream) => {
     let buyPrice = thisTradePair.buyPriceDCB
     let sellPrice = 0;
+    let initialBalances = [0, 0];
     if (typeof thisTradePair.sellPriceDCB === 'undefined') {
         sellPrice = 0;
     } else {
@@ -428,12 +471,13 @@ const executeDCB = async (thisTradePair, newPrice, logstream) => {
     if (buyPrice <= 0 || buyPrice < newPrice) {
         // don't try to buy anything
     } else {
-        let sellAssetBalance = await getWalletBalance(thisTradePair.sellAddress, walletAddress);
+        initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let sellAssetBalance = initialBalances[1];
         let amountToSpend = amountToSell(thisTradePair.sellAddress, thisTradePair.sellDecimals, sellAssetBalance, thisTradePair.sellMoonBag);
         let bnbEquivalent = await getBnbEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
         if (bnbEquivalent < minBnbToTrade) {
             // amount to trade is too small - don't bother, also don't output this to the logfile
-            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB Equivalents\n`);
+            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
             return;
         }
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
@@ -448,13 +492,24 @@ const executeDCB = async (thisTradePair, newPrice, logstream) => {
         if (globalParams._bidToMidSlippage > 0) {
             let thisbidToMidSlippage = Math.abs(newPrice - bestPriceAndRoute[0])*100/newPrice;
             if (thisbidToMidSlippage > globalParams._bidToMidSlippage) {
-                appendTradeLog(logstream, `Price impact of the size of this trade is too big ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
+                appendTradeLog(logstream, `Price impact of the size of this trade is too big Price: ${bestPriceAndRoute[0]} Slippage:  ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
                 return;
             }
         }
-        appendTradeLog(logstream, ` Aboutto hit up a buy trade hoping for ${bestPriceAndRoute[0]}`);
+        appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
         await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
         tradeParameters[thisTradePair.pairname].sellPriceDCB = bestPriceAndRoute[0] * (1 + thisTradePair.sellPctDCB / 100);
+        let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress);
+        let actualPurchase = new BN(finalBalances[0]);
+        actualPurchase = (actualPurchase - initialBalances[0]) / (10 ** thisTradePair.buyDecimals);
+        let actualSale = new BN(initialBalances[1]);
+        actualSale = (actualSale - finalBalances[1]) / (10 ** thisTradePair.sellDecimals);
+        appendTradeLog(logstream, `********************
+        Purchase successful:
+        ********************
+        Bought ${actualPurchase.toPrecision(6)} (${thisTradePair.buyTicker})
+        Sold ${actualSale.toPrecision(6)} (${thisTradePair.sellTicker})
+        effective price: ${(actualSale / actualPurchase).toPrecision(6)}`);
     }
 
 
@@ -462,13 +517,14 @@ const executeDCB = async (thisTradePair, newPrice, logstream) => {
         // don't try to sell anything
     } else {
         // remember you're now selling the 'Buy asset' and that the price that comes back from the router needs to be inverted
-        let buyAssetBalance = await getWalletBalance(thisTradePair.buyAddress, walletAddress);
+        initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let buyAssetBalance = initialBalances[0];
         let amountToSpend = amountToSell(thisTradePair.buyAddress, thisTradePair.buyDecimals, buyAssetBalance, thisTradePair.buyMoonBag);
         let bnbEquivalent = await getBnbEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
 
         if (bnbEquivalent < minBnbToTrade) {
             // amount to trade is too small - don't bother
-            appendTradeLog(logstream, `Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB Equivalents\n`);
+            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
             return;
         } 
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
@@ -484,16 +540,27 @@ const executeDCB = async (thisTradePair, newPrice, logstream) => {
         if (globalParams._bidToMidSlippage > 0) {
             let thisbidToMidSlippage = Math.abs(newPrice - bestPriceAndRoute[0])*100/newPrice;
             if (thisbidToMidSlippage > globalParams._bidToMidSlippage) {
-                appendTradeLog(logstream, `Price impact of the size of this trade is too big ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
+                appendTradeLog(logstream, `Price impact of the size of this trade is too big Price: ${bestPriceAndRoute[0]} Slippage:  ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
                 return;
             }
         }
-        appendTradeLog(logstream, ` Aboutto hit up a sell trade hoping for ${bestPriceAndRoute[0]}`);
+        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
         await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
         if (thisTradePair.stopAfterOneBounceDCB) {
             // kill the process altogether
             tradeParameters[thisTradePair.pairname].activate = false;
-            appendTradeLog(logstream, `Sell executed after dead cat bounce - no further trading`)
+            let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+            let actualPurchase = new BN(finalBalances[1])
+            actualPurchase = (actualPurchase - initialBalances[1]) / (10 ** thisTradePair.sellDecimals)
+            let actualSale = new BN(initialBalances[0]) 
+            actualSale = (actualSale - finalBalances[0]) / (10 ** thisTradePair.buyDecimals)
+            appendTradeLog(logstream, `****************
+            Sale successful:
+            ****************
+            Sold ${actualSale.toPrecision(6)} (${thisTradePair.buyTicker})
+            Bought ${actualPurchase.toPrecision(6)} (${thisTradePair.sellTicker})
+            effective price: ${(actualPurchase / actualSale).toPrecision(6)}`);
+            appendTradeLog(logstream, `\nSell executed after dead cat bounce - no further trading`)
         } else {
             // turn off the sale and wait for new buy
             tradeParameters[thisTradePair.pairname].sellPriceDCB = -1;
@@ -511,6 +578,7 @@ const executeDCB = async (thisTradePair, newPrice, logstream) => {
 const executePRT = async (thisTradePair, newPrice, logstream) => {
     let buyPrice = 0;
     let sellPrice = 0;
+    let initialBalances = [0, 0];
     if (typeof thisTradePair.buyPricePRT === 'undefined' || typeof thisTradePair.sellPricePRT === 'undefined') {
         // the first loop - lets set the buy and sells at HALF the percentage width
         buyPrice = newPrice * (1 - thisTradePair.buyPctPRT / 200);
@@ -525,12 +593,13 @@ const executePRT = async (thisTradePair, newPrice, logstream) => {
     if (buyPrice <= 0 || buyPrice < newPrice) {
         // don't try to buy anything
     } else {
-        let sellAssetBalance = await getWalletBalance(thisTradePair.sellAddress, walletAddress);
+        initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let sellAssetBalance = initialBalances[1];
         let amountToSpend = amountToSell(thisTradePair.sellAddress, thisTradePair.sellDecimals, sellAssetBalance, thisTradePair.sellMoonBag);
         let bnbEquivalent = await getBnbEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
         if (bnbEquivalent < minBnbToTrade) {
             // amount to trade is too small - don't bother, also don't output this to the logfile
-            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB Equivalents\n`);
+            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
             return;
         }
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
@@ -543,27 +612,39 @@ const executePRT = async (thisTradePair, newPrice, logstream) => {
             return;
         }
         if (globalParams._bidToMidSlippage > 0) {
-            let thisbidToMidSlippage = Math.max(newPrice - bestPriceAndRoute[0], 0)*100/newPrice;
+            let thisbidToMidSlippage = Math.abs(newPrice - bestPriceAndRoute[0])*100/newPrice;
             if (thisbidToMidSlippage > globalParams._bidToMidSlippage) {
-                appendTradeLog(logstream, `Price impact of the size of this trade is too big ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
+                appendTradeLog(logstream, `Price impact of the size of this trade is too big Price: ${bestPriceAndRoute[0]} Slippage:  ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
                 return;
             }
         }
-        appendTradeLog(logstream, ` Aboutto hit up a buy trade hoping for ${bestPriceAndRoute[0]}`);
+        appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
         await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
         tradeParameters[thisTradePair.pairname].sellPricePRT = bestPriceAndRoute[0] * (1 + thisTradePair.sellPctPRT / 100);
+        let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress);
+        let actualPurchase = new BN(finalBalances[0]);
+        actualPurchase = (actualPurchase - initialBalances[0]) / (10 ** thisTradePair.buyDecimals);
+        let actualSale = new BN(initialBalances[1]);
+        actualSale = (actualSale - finalBalances[1]) / (10 ** thisTradePair.sellDecimals);
+        appendTradeLog(logstream, `********************
+        Purchase successful:
+        ********************
+        Bought ${actualPurchase.toPrecision(6)} (${thisTradePair.buyTicker})
+        Sold ${actualSale.toPrecision(6)} (${thisTradePair.sellTicker})
+        effective price: ${(actualSale / actualPurchase).toPrecision(6)}`);
     }
     if (sellPrice <= 0 || sellPrice > newPrice) {
         // don't try to sell anything
     } else {
         // remember you're now selling the 'Buy asset' and that the price that comes back from the router needs to be inverted
-        let buyAssetBalance = await getWalletBalance(thisTradePair.buyAddress, walletAddress);
+        initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let buyAssetBalance = initialBalances[0];
         let amountToSpend = amountToSell(thisTradePair.buyAddress, thisTradePair.buyDecimals, buyAssetBalance, thisTradePair.buyMoonBag);
         let bnbEquivalent = await getBnbEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
 
         if (bnbEquivalent < minBnbToTrade) {
             // amount to trade is too small - don't bother
-            appendTradeLog(logstream, `Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB Equivalents\n`);
+            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
             return;
         } 
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
@@ -577,15 +658,26 @@ const executePRT = async (thisTradePair, newPrice, logstream) => {
         }
         bestPriceAndRoute[0] = 1 / bestPriceAndRoute[0];
         if (globalParams._bidToMidSlippage > 0) {
-            let thisbidToMidSlippage = Math.max(newPrice - bestPriceAndRoute[0],0)*100/newPrice;
+            let thisbidToMidSlippage = Math.abs(newPrice - bestPriceAndRoute[0])*100/newPrice;
             if (thisbidToMidSlippage > globalParams._bidToMidSlippage) {
-                appendTradeLog(logstream, `Price impact of the size of this trade is too big ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
+                appendTradeLog(logstream, `Price impact of the size of this trade is too big Price: ${bestPriceAndRoute[0]} Slippage:  ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
                 return;
             }
         }
-        appendTradeLog(logstream, ` Aboutto hit up a sell trade hoping for ${bestPriceAndRoute[0]}`);
+        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
         await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
         tradeParameters[thisTradePair.pairname].buyPricePRT = bestPriceAndRoute[0] * (1 - thisTradePair.buyPctPRT / 100);
+        let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let actualPurchase = new BN(finalBalances[1])
+        actualPurchase = (actualPurchase - initialBalances[1]) / (10 ** thisTradePair.sellDecimals)
+        let actualSale = new BN(initialBalances[0]) 
+        actualSale = (actualSale - finalBalances[0]) / (10 ** thisTradePair.buyDecimals)
+        appendTradeLog(logstream, `****************
+        Sale successful:
+        ****************
+        Sold ${actualSale.toPrecision(6)} (${thisTradePair.buyTicker})
+        Bought ${actualPurchase.toPrecision(6)} (${thisTradePair.sellTicker})
+        effective price: ${(actualPurchase / actualSale).toPrecision(6)}`);
     }
 }
 
@@ -597,16 +689,17 @@ const executePRT = async (thisTradePair, newPrice, logstream) => {
 const executeSL = async (thisTradePair, newPrice, logstream) => {
     let buyPrice = thisTradePair.buySTOPPrice;
     let sellPrice = thisTradePair.sellSTOPPrice; 
-
+    let initialBalances = [0, 0];
     if (buyPrice <= 0 || buyPrice > newPrice) {
         // don't try to buy anything
     } else {
-        let sellAssetBalance = await getWalletBalance(thisTradePair.sellAddress, walletAddress);
+        initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let sellAssetBalance = initialBalances[1];
         let amountToSpend = amountToSell(thisTradePair.sellAddress, thisTradePair.sellDecimals, sellAssetBalance, thisTradePair.sellMoonBag);
         let bnbEquivalent = await getBnbEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
         if (bnbEquivalent < minBnbToTrade) {
             // amount to trade is too small - don't bother, also don't output this to the logfile
-            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB Equivalents\n`);
+            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
             return;
         }
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
@@ -621,12 +714,23 @@ const executeSL = async (thisTradePair, newPrice, logstream) => {
         if (globalParams._bidToMidSlippage > 0) {
             let thisbidToMidSlippage = Math.abs(newPrice - bestPriceAndRoute[0])*100/newPrice;
             if (thisbidToMidSlippage > globalParams._bidToMidSlippage) {
-                appendTradeLog(logstream, `Price impact of the size of this trade is too big ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
+                appendTradeLog(logstream, `Price impact of the size of this trade is too big Price: ${bestPriceAndRoute[0]} Slippage:  ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
                 return;
             }
         }
-        appendTradeLog(logstream, ` Aboutto hit up a buy trade hoping for ${bestPriceAndRoute[0]}`);
+        appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
         await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress);
+        let actualPurchase = new BN(finalBalances[0]);
+        actualPurchase = (actualPurchase - initialBalances[0]) / (10 ** thisTradePair.buyDecimals);
+        let actualSale = new BN(initialBalances[1]);
+        actualSale = (actualSale - finalBalances[1]) / (10 ** thisTradePair.sellDecimals);
+        appendTradeLog(logstream, `********************
+        Purchase successful:
+        ********************
+        Bought ${actualPurchase.toPrecision(6)} (${thisTradePair.buyTicker})
+        Sold ${actualSale.toPrecision(6)} (${thisTradePair.sellTicker})
+        effective price: ${(actualSale / actualPurchase).toPrecision(6)}`);
     }
 
 
@@ -634,13 +738,14 @@ const executeSL = async (thisTradePair, newPrice, logstream) => {
         // don't try to sell anything
     } else {
         // remember you're now selling the 'Buy asset' and that the price that comes back from the router needs to be inverted
-        let buyAssetBalance = await getWalletBalance(thisTradePair.buyAddress, walletAddress);
+        initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let buyAssetBalance = initialBalances[0];
         let amountToSpend = amountToSell(thisTradePair.buyAddress, thisTradePair.buyDecimals, buyAssetBalance, thisTradePair.buyMoonBag);
         let bnbEquivalent = await getBnbEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
 
         if (bnbEquivalent < minBnbToTrade) {
             // amount to trade is too small - don't bother
-            appendTradeLog(logstream, `Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB Equivalents\n`);
+            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
             return;
         } 
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
@@ -656,12 +761,23 @@ const executeSL = async (thisTradePair, newPrice, logstream) => {
         if (globalParams._bidToMidSlippage > 0) {
             let thisbidToMidSlippage = Math.abs(newPrice - bestPriceAndRoute[0])*100/newPrice;
             if (thisbidToMidSlippage > globalParams._bidToMidSlippage) {
-                appendTradeLog(logstream, `Price impact of the size of this trade is too big ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
+                appendTradeLog(logstream, `Price impact of the size of this trade is too big Price: ${bestPriceAndRoute[0]} Slippage:  ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
                 return;
             }
         }
-        appendTradeLog(logstream, ` Aboutto hit up a sell trade hoping for ${bestPriceAndRoute[0]}`);
+        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
         await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let actualPurchase = new BN(finalBalances[1])
+        actualPurchase = (actualPurchase - initialBalances[1]) / (10 ** thisTradePair.sellDecimals)
+        let actualSale = new BN(initialBalances[0]) 
+        actualSale = (actualSale - finalBalances[0]) / (10 ** thisTradePair.buyDecimals)
+        appendTradeLog(logstream, `****************
+        Sale successful:
+        ****************
+        Sold ${actualSale.toPrecision(6)} (${thisTradePair.buyTicker})
+        Bought ${actualPurchase.toPrecision(6)} (${thisTradePair.sellTicker})
+        effective price: ${(actualPurchase / actualSale).toPrecision(6)}`);
     }
 }
 
@@ -672,17 +788,18 @@ const executeSL = async (thisTradePair, newPrice, logstream) => {
 // TRAILING STOP LOSS
 // ******************
 const executeTSL = async (thisTradePair, newPrice, logstream) => {
-
     let buyPrice = 0;
     let sellPrice = 0;
+    let initialBalances = [0, 0];
     if (typeof thisTradePair.buyPriceTSL === 'undefined' || typeof thisTradePair.sellPriceTSL === 'undefined') {
-        // the first loop - lets set the buy and sells at HALF the percentage width
+        // the first loop - lets set the buy and sells
         buyPrice = newPrice * (1 + thisTradePair.buySTOPPctTSL / 100);
         sellPrice = newPrice * (1 - thisTradePair.sellSTOPPctTSL / 100);
     } else {
         buyPrice = Math.min(thisTradePair.buyPriceTSL, newPrice * (1 + thisTradePair.buySTOPPctTSL / 100));
         sellPrice = Math.max(thisTradePair.sellPriceTSL, newPrice * (1 - thisTradePair.sellSTOPPctTSL / 100));
     };
+
     tradeParameters[thisTradePair.pairname].buyPriceTSL = buyPrice;
     tradeParameters[thisTradePair.pairname].sellPriceTSL = sellPrice;
     // when you execute a buy you turn off the buy signal and turn on the sell signal
@@ -691,12 +808,13 @@ const executeTSL = async (thisTradePair, newPrice, logstream) => {
     if (buyPrice < 0 || buyPrice > newPrice || thisTradePair.buySTOPPctTSL <= 0) {
         // don't try to buy anything
     } else {
-        let sellAssetBalance = await getWalletBalance(thisTradePair.sellAddress, walletAddress);
+        initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let sellAssetBalance = initialBalances[1];
         let amountToSpend = amountToSell(thisTradePair.sellAddress, thisTradePair.sellDecimals, sellAssetBalance, thisTradePair.sellMoonBag);
         let bnbEquivalent = await getBnbEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
         if (bnbEquivalent < minBnbToTrade) {
             // amount to trade is too small - don't bother, also don't output this to the logfile
-            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB Equivalents\n`);
+            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
             return;
         }
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
@@ -711,17 +829,28 @@ const executeTSL = async (thisTradePair, newPrice, logstream) => {
         if (globalParams._bidToMidSlippage > 0) {
             let thisbidToMidSlippage = Math.abs(newPrice - bestPriceAndRoute[0])*100/newPrice;
             if (thisbidToMidSlippage > globalParams._bidToMidSlippage) {
-                appendTradeLog(logstream, `Price impact of the size of this trade is too big ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
+                appendTradeLog(logstream, `Price impact of the size of this trade is too big Price: ${bestPriceAndRoute[0]} Slippage:  ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
                 return;
             }
         }
-        appendTradeLog(logstream, ` Aboutto hit up a buy trade hoping for ${bestPriceAndRoute[0]}`);
+        appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
         await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
 
         // when you execute a buy you turn off the buy signal and turn on the sell signal
         // likewise when you sell you turn on the buy and turn off the sell
         tradeParameters[thisTradePair.pairname].buyPriceTSL = 0;
         tradeParameters[thisTradePair.pairname].sellPriceTSL = bestPriceAndRoute[0] * (1 - thisTradePair.sellSTOPPctTSL / 100);
+        let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress);
+        let actualPurchase = new BN(finalBalances[0]);
+        actualPurchase = (actualPurchase - initialBalances[0]) / (10 ** thisTradePair.buyDecimals);
+        let actualSale = new BN(initialBalances[1]);
+        actualSale = (actualSale - finalBalances[1]) / (10 ** thisTradePair.sellDecimals);
+        appendTradeLog(logstream, `********************
+        Purchase successful:
+        ********************
+        Bought ${actualPurchase.toPrecision(6)} (${thisTradePair.buyTicker})
+        Sold ${actualSale.toPrecision(6)} (${thisTradePair.sellTicker})
+        effective price: ${(actualSale / actualPurchase).toPrecision(6)}`);
     }
 
 
@@ -729,13 +858,13 @@ const executeTSL = async (thisTradePair, newPrice, logstream) => {
         // don't try to sell anything
     } else {
         // remember you're now selling the 'Buy asset' and that the price that comes back from the router needs to be inverted
-        let buyAssetBalance = await getWalletBalance(thisTradePair.buyAddress, walletAddress);
+        initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let buyAssetBalance = initialBalances[0];
         let amountToSpend = amountToSell(thisTradePair.buyAddress, thisTradePair.buyDecimals, buyAssetBalance, thisTradePair.buyMoonBag);
         let bnbEquivalent = await getBnbEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
-
         if (bnbEquivalent < minBnbToTrade) {
             // amount to trade is too small - don't bother
-            appendTradeLog(logstream, `Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB Equivalents\n`);
+            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
             return;
         } 
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
@@ -751,18 +880,189 @@ const executeTSL = async (thisTradePair, newPrice, logstream) => {
         if (globalParams._bidToMidSlippage > 0) {
             let thisbidToMidSlippage = Math.abs(newPrice - bestPriceAndRoute[0])*100/newPrice;
             if (thisbidToMidSlippage > globalParams._bidToMidSlippage) {
-                appendTradeLog(logstream, `Price impact of the size of this trade is too big ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
+                appendTradeLog(logstream, `Price impact of the size of this trade is too big Price: ${bestPriceAndRoute[0]} Slippage:  ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
                 return;
             }
         }
-        appendTradeLog(logstream, ` Aboutto hit up a sell trade hoping for ${bestPriceAndRoute[0]}`);
+        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
         await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
         // when you execute a buy you turn off the buy signal and turn on the sell signal
         // likewise when you sell you turn on the buy and turn off the sell
         tradeParameters[thisTradePair.pairname].buyPriceTSL = bestPriceAndRoute[0] * (1 + thisTradePair.buySTOPPctTSL / 100);
         tradeParameters[thisTradePair.pairname].sellPriceTSL = 0;
+        let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+        let actualPurchase = new BN(finalBalances[1])
+        actualPurchase = (actualPurchase - initialBalances[1]) / (10 ** thisTradePair.sellDecimals)
+        let actualSale = new BN(initialBalances[0]) 
+        actualSale = (actualSale - finalBalances[0]) / (10 ** thisTradePair.buyDecimals)
+        appendTradeLog(logstream, `****************
+        Sale successful:
+        ****************
+        Sold ${actualSale.toPrecision(6)} (${thisTradePair.buyTicker})
+        Bought ${actualPurchase.toPrecision(6)} (${thisTradePair.sellTicker})
+        effective price: ${(actualPurchase / actualSale).toPrecision(6)}`);
     }
 }
+
+
+// *******************
+// SMART RANGE TRADING
+// *******************
+const executeSmartRange = async (thisTradePair, newPrice, logstream) => {
+    if (typeof thisTradePair.buyPriceSR === 'undefined' || typeof thisTradePair.sellPriceSR === 'undefined') {
+        // the first loop - lets set the buy and sells at HALF the percentage width
+        tradeParameters[thisTradePair.pairname].buyPriceSR = -1;
+        tradeParameters[thisTradePair.pairname].buyTriggerSR = false;
+        tradeParameters[thisTradePair.pairname].sellPriceSR = -1;
+        tradeParameters[thisTradePair.pairname].sellTriggerSR = false;
+        tradeParameters[thisTradePair.pairname].buyTargetSR = thisTradePair.buyInitialTargetSR;
+        tradeParameters[thisTradePair.pairname].sellTargetSR = newPrice * (1 + thisTradePair.profitPctSR / 100);
+    } 
+    let initialBalances = [0, 0];
+    if (thisTradePair.buyTriggerSR === false) {
+        // no trigger has been previously set
+        if (thisTradePair.buyTargetSR < newPrice) {
+            // the price is still above the target - don't look to buy
+        } else {
+            // we've just hit the target level so we need to start looking for a reversal to trigger a buy
+            tradeParameters[thisTradePair.pairname].buyTriggerSR = true;
+            tradeParameters[thisTradePair.pairname].buyPriceSR = newPrice * (1 + thisTradePair.reversalPctSR / 100);
+            console.log(`Buy Trigger activated at ${newPrice}, looking to buy when we rise above ${tradeParameters[thisTradePair.pairname].buyPriceSR}`);
+        }
+    } else {
+        if (thisTradePair.buyPriceSR < newPrice){
+            // the price has just gone up again above the trigger
+            console.log(`Just gone above the trigger - going to buy`)
+            // execute a trade
+            initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+            let sellAssetBalance = initialBalances[1];
+            let amountToSpend = amountToSell(thisTradePair.sellAddress, thisTradePair.sellDecimals, sellAssetBalance, thisTradePair.sellMoonBag);
+            let bnbEquivalent = await getBnbEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
+            if (bnbEquivalent < minBnbToTrade) {
+                // amount to trade is too small - don't bother, also don't output this to the logfile
+                console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+                // set the sell target to be exected buy + profit%
+                tradeParameters[thisTradePair.pairname].sellTargetSR = newPrice * (1 + thisTradePair.profitPctSR / 100);
+                // turn off the buyTriggerSR and the buyTargetSR
+                tradeParameters[thisTradePair.pairname].buyTriggerSR = false;
+                tradeParameters[thisTradePair.pairname].buyTargetSR = -1;
+                return;
+            }
+            let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
+            appendTradeLog(logstream, `Spending ${textAmountToSpend} ${thisTradePair.sellTicker} tokens on ${thisTradePair.buyTicker}\n`);
+            // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+            let bestPriceAndRoute = await getBestPrice(thisTradePair.buyAddress, thisTradePair.buyDecimals, thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
+            if (bestPriceAndRoute[0] === -1) {
+                appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
+                tradeParameters[thisTradePair.pairname].activate = false;
+                return;
+            }
+            if (globalParams._bidToMidSlippage > 0) {
+                let thisbidToMidSlippage = Math.abs(newPrice - bestPriceAndRoute[0])*100/newPrice;
+                if (thisbidToMidSlippage > globalParams._bidToMidSlippage) {
+                    appendTradeLog(logstream, `Price impact of the size of this trade is too big Price: ${bestPriceAndRoute[0]} Slippage:  ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
+                    return;
+                }
+            }
+            appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
+            await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+            // set the sell target to be exected buy + profit%
+            tradeParameters[thisTradePair.pairname].sellTargetSR = newPrice * (1 + thisTradePair.profitPctSR / 100);
+            // turn off the buyTriggerSR and the buyTargetSR
+            tradeParameters[thisTradePair.pairname].buyTriggerSR = false;
+            tradeParameters[thisTradePair.pairname].buyTargetSR = -1;
+            let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress);
+            let actualPurchase = new BN(finalBalances[0]);
+            actualPurchase = (actualPurchase - initialBalances[0]) / (10 ** thisTradePair.buyDecimals);
+            let actualSale = new BN(initialBalances[1]);
+            actualSale = (actualSale - finalBalances[1]) / (10 ** thisTradePair.sellDecimals);
+            appendTradeLog(logstream, `********************
+            Purchase successful:
+            ********************
+            Bought ${actualPurchase.toPrecision(6)} (${thisTradePair.buyTicker})
+            Sold ${actualSale.toPrecision(6)} (${thisTradePair.sellTicker})
+            effective price: ${(actualSale / actualPurchase).toPrecision(6)}`);
+        } else {
+            // the price is still below the buy trigger - price still falling
+            // reset the trigger to be the lesser of the old trigger and the new price + reversal
+            tradeParameters[thisTradePair.pairname].buyPriceSR = Math.min(thisTradePair.buyPriceSR, newPrice * (1 + thisTradePair.reversalPctSR / 100));
+        }
+    }
+    if (thisTradePair.sellTriggerSR === false) {
+        // no trigger has been previously set
+        if (thisTradePair.sellTargetSR > newPrice || thisTradePair.sellTargetSR < 0) {
+            // the price is still below the target - don't look to buy
+        } else {
+            // we've just hit the target level so we need to start looking for a reversal to trigger a buy
+            tradeParameters[thisTradePair.pairname].sellTriggerSR = true;
+            tradeParameters[thisTradePair.pairname].sellPriceSR = newPrice * (1 - thisTradePair.reversalPctSR / 100);
+            console.log(`Sell Trigger activated at ${newPrice}, looking to sell when we fall below ${tradeParameters[thisTradePair.pairname].sellPriceSR}`);
+        }
+    } else {
+        if (thisTradePair.sellPriceSR > newPrice){
+            // the price has just gone down again below the trigger
+            console.log(`Just gone below the trigger - going to sell`)
+            // execute a trade
+            // remember you're now selling the 'Buy asset' and that the price that comes back from the router needs to be inverted
+            initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+            let buyAssetBalance = initialBalances[0];
+            let amountToSpend = amountToSell(thisTradePair.buyAddress, thisTradePair.buyDecimals, buyAssetBalance, thisTradePair.buyMoonBag);
+            let bnbEquivalent = await getBnbEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
+            if (bnbEquivalent < minBnbToTrade) {
+                // amount to trade is too small - don't bother
+                console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+                // set the buy target to be lesser of: original buy Target and exected sell - profit %
+                tradeParameters[thisTradePair.pairname].buyTargetSR = Math.min(thisTradePair.buyInitialTargetSR, newPrice * (1 - thisTradePair.profitPctSR / 100));
+                // turn off the buyTriggerSR and the buyTargetSR
+                tradeParameters[thisTradePair.pairname].sellTriggerSR = false;
+                tradeParameters[thisTradePair.pairname].sellTargetSR = -1;
+                return;
+            } 
+            let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
+            appendTradeLog(logstream, `Selling ${textAmountToSpend} ${thisTradePair.buyTicker} tokens for ${thisTradePair.sellTicker}\n`);
+            // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+            let bestPriceAndRoute = await getBestPrice(thisTradePair.sellAddress, thisTradePair.sellDecimals, thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
+            if (bestPriceAndRoute[0] === -1) {
+                appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
+                tradeParameters[thisTradePair.pairname].activate = false;
+                return;
+            }
+            bestPriceAndRoute[0] = 1 / bestPriceAndRoute[0];
+            if (globalParams._bidToMidSlippage > 0) {
+                let thisbidToMidSlippage = Math.abs(newPrice - bestPriceAndRoute[0])*100/newPrice;
+                if (thisbidToMidSlippage > globalParams._bidToMidSlippage) {
+                    appendTradeLog(logstream, `Price impact of the size of this trade is too big Price: ${bestPriceAndRoute[0]} Slippage:  ${thisbidToMidSlippage.toPrecision(3)}% vs the max allowed of ${globalParams._bidToMidSlippage}% `);
+                    return;
+                }
+            }
+            appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
+            await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+            let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
+            let actualPurchase = new BN(finalBalances[1])
+            actualPurchase = (actualPurchase - initialBalances[1]) / (10 ** thisTradePair.sellDecimals)
+            let actualSale = new BN(initialBalances[0]) 
+            actualSale = (actualSale - finalBalances[0]) / (10 ** thisTradePair.buyDecimals)
+            appendTradeLog(logstream, `****************
+            Sale successful:
+            ****************
+            Sold ${actualSale.toPrecision(6)} (${thisTradePair.buyTicker})
+            Bought ${actualPurchase.toPrecision(6)} (${thisTradePair.sellTicker})
+            effective price: ${(actualPurchase / actualSale).toPrecision(6)}`);
+            // set the buy target to be lesser of: original buy Target and exected sell - profit %
+            tradeParameters[thisTradePair.pairname].buyTargetSR = Math.min(thisTradePair.buyInitialTargetSR, newPrice * (1 - thisTradePair.profitPctSR / 100));
+            // turn off the buyTriggerSR and the buyTargetSR
+            tradeParameters[thisTradePair.pairname].sellTriggerSR = false;
+            tradeParameters[thisTradePair.pairname].sellTargetSR = -1;
+        } else {
+            // the price is still above the sell trigger - price still rising
+            // reset the trigger to be the higher of the old trigger and the new price - reversal
+            tradeParameters[thisTradePair.pairname].sellPriceSR = Math.max(thisTradePair.sellPriceSR, newPrice * (1 - thisTradePair.reversalPctSR / 100));
+        }
+    }
+}
+
+
+
 
 
 // ********************
@@ -803,6 +1103,10 @@ const init = async () => {
                 // initial variables are fkd don't do anything!
                 return;
             }
+            if (midPrice === -1) {
+                console.log(`Get Mid failed - exiting`);
+                return;
+            }
             let verboseDialog =``;
             if (checkInitialSettings(tradeParameters[thisTradePair], midPrice)) {
                 verboseDialog = await verboseTradeDescription(globalParams, tradeParameters[thisTradePair], midPrice);
@@ -833,29 +1137,46 @@ const init = async () => {
     if (executionCount > 0) {
         // there's at least one live trade - start looping through and checking price triggers etc.
         while (executionCount > 0) {
+            let walletBNBBalance = await getWalletBalance(wbnbAddress, walletAddress)
+            let bnbTokenBalance = (walletBNBBalance / (10 ** 18)).toPrecision(6)
+            if (bnbTokenBalance <= globalParams._haltOnLowBNB) { 
+                appendTradeLog(tickerStream, `Low BNB Balance in wallet: ${bnbTokenBalance} BNB - execution halted`)
+                return 
+            }
             await delay(5000);
             executionCount = 0;
             for (let thisTradePair in tradeParameters) {
                 if (tradeParameters[thisTradePair].activate === true && thisTradePair !== 'template') {
                     executionCount += 1;
-                    let newPrice = await getMidPrice(tradeParameters[thisTradePair].sellAddress, tradeParameters[thisTradePair].sellDecimals, tradeParameters[thisTradePair].buyAddress, tradeParameters[thisTradePair].buyDecimals);
-                    console.log(`${thisTradePair}: (${tradeParameters[thisTradePair].sellTicker}/${tradeParameters[thisTradePair].buyTicker}) mid price: ${newPrice}`)
-                    switch (tradeParameters[thisTradePair].tradeType) {
-                        case 'BUY-SELL-PRICE-LIMITS':
-                            await executeBSPL(tradeParameters[thisTradePair], newPrice, tickerStream);
-                            break;
-                        case 'DEAD-CAT-BOUNCE':
-                            await executeDCB(tradeParameters[thisTradePair], newPrice, tickerStream);
-                            break;
-                        case 'PCT-RANGE-TRADING':
-                            await executePRT(tradeParameters[thisTradePair], newPrice, tickerStream);
-                            break;
-                        case 'STOP-LOSS':
-                            await executeSL(tradeParameters[thisTradePair], newPrice, tickerStream);
-                            break;
-                        case 'TRAILING-STOP-LOSS':
-                            await executeTSL(tradeParameters[thisTradePair], newPrice, tickerStream);
-                            break;
+                    try {
+                        let newPrice = await getMidPrice(tradeParameters[thisTradePair].sellAddress, tradeParameters[thisTradePair].sellDecimals, tradeParameters[thisTradePair].buyAddress, tradeParameters[thisTradePair].buyDecimals);
+                        if (newPrice === -1) {
+                            console.log (`\nNo price ... retrying`)
+                        } else {
+                            console.log(`${thisTradePair}: (${tradeParameters[thisTradePair].sellTicker}/${tradeParameters[thisTradePair].buyTicker}) mid price: ${newPrice}`)
+                            switch (tradeParameters[thisTradePair].tradeType) {
+                                case 'BUY-SELL-PRICE-LIMITS':
+                                    await executeBSPL(tradeParameters[thisTradePair], newPrice, tickerStream);
+                                    break;
+                                case 'DEAD-CAT-BOUNCE':
+                                    await executeDCB(tradeParameters[thisTradePair], newPrice, tickerStream);
+                                    break;
+                                case 'PCT-RANGE-TRADING':
+                                    await executePRT(tradeParameters[thisTradePair], newPrice, tickerStream);
+                                    break;
+                                case 'STOP-LOSS':
+                                    await executeSL(tradeParameters[thisTradePair], newPrice, tickerStream);
+                                    break;
+                                case 'TRAILING-STOP-LOSS':
+                                    await executeTSL(tradeParameters[thisTradePair], newPrice, tickerStream);
+                                    break;
+                                case 'SMART-RANGE':
+                                    await executeSmartRange(tradeParameters[thisTradePair], newPrice, tickerStream);
+                                    break;
+                            }
+                        }
+                    } catch (error) {
+                        console.log (`\nNo price ... retrying`)
                     }
                 }
             }
@@ -869,12 +1190,10 @@ const init = async () => {
 init();
 
 /* TO DO
+1) finish price calculations and save to stream - divide by decimals
+3) look at code to see if you need to reuse effective price
+4) finish coding the smartrange <- TO TEST
+5) kill if BNB is less than x <- TO TEST
 8) CODING: MATIC
 9) CODING: uniswap
-
 */
-
-
-// WORKS WITH
-// BUSD/BNB
-// BUSD/CAKE

@@ -1,7 +1,7 @@
 // PLEASE READ THE COMMENTS AT THE END IF YOU DON'T KNOW WHAT THESE PARAMETERS MEAN
-// Some BSC coin tokens:
+// Some coin tokens:
 // CAKE = 0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82
-// BUSD = 0xe9e7cea3dedca5984780bafc599bd69add087d56 
+// BUSD = 0xe9e7cea3dedca5984780bafc599bd69add087d56
 // BUNNY = 0xc9849e6fdb743d08faee3e34dd2d1bc69ea11a51
 // BMXX = 0x4131b87f74415190425ccd873048c708f8005823 (BSC Version)
 // AUTO = 0xa184088a740c695e156f91f5cc086a06bb78b827
@@ -11,25 +11,10 @@
 // BFI = 0x81859801b01764d4f0fa5e64729f5a6c3b91435b (BEARNFI)
 // WATCH = 0x7a9f28eb62c791422aa23ceae1da9c847cbec9b0
 // ICE = 0xf16e81dce15b08f326220742020379b855b87df9
-// KILI = 0x865d0c78d08bd6e5f0db6bcbf36d3f8eb4ad48f8 
-// CODEX = 0x9e95cb3d0560f9cba88991f828322526851bfb56 (Caution v low trading volumes)
 
 const tradeParameters = {
     pair1: {
         activate: false,
-        buyAddress: 'BNB',
-        sellAddress: '0xe9e7cea3dedca5984780bafc599bd69add087d56',
-        buyMoonBag: 0, // Don't ever trade this number of buyAddress coins
-        sellMoonBag: 0, // Don't ever trade this number of sellAddress coins
-
-        tradeType: 'BUY-SELL-PRICE-LIMITS',
-
-        // TRADE TYPE 1:    BUY-SELL-PRICE-LIMITS
-        buyPrice :  420, // set this to -1 if you don't want to buy any tokens
-        sellPrice : -1 // set this to -1 if you don't want to sell any tokens
-    },
-    pair2: {
-        activate: true,
         buyAddress: '0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82',
         sellAddress: '0xe9e7cea3dedca5984780bafc599bd69add087d56',
         buyMoonBag: 0, // Don't ever trade this number of buyAddress coins
@@ -38,21 +23,41 @@ const tradeParameters = {
         tradeType: 'BUY-SELL-PRICE-LIMITS',
 
         // TRADE TYPE 1:    BUY-SELL-PRICE-LIMITS
-        buyPrice :  12.5, // set this to -1 if you don't want to buy any tokens
-        sellPrice : 21 // set this to -1 if you don't want to sell any tokens
+        buyPrice :  15.2, // set this to -1 if you don't want to buy any tokens
+        sellPrice : 15.8 // set this to -1 if you don't want to sell any tokens
+
+        //don't forget NO comma after the last variable
     },
-    pair3: {
+    pair2: {
         activate: false,
-        buyAddress: 'BNB',
+        buyAddress: '0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82',
         sellAddress: '0xe9e7cea3dedca5984780bafc599bd69add087d56',
         buyMoonBag: 0, // Don't ever trade this number of buyAddress coins
         sellMoonBag: 0, // Don't ever trade this number of sellAddress coins
 
-        tradeType: 'STOP-LOSS',
+        tradeType: 'TRAILING-STOP-LOSS',
+        
+        buySTOPPctTSL :  -1, // the ammount in percent above the lowest price to execute your buy, 50 is 50 percent, 0.5 is half a percent
+                // set this to -1 to disable this
+        sellSTOPPctTSL : 1 // the ammount in percent above the lowest price to execute your buy, 50 is 50 percent, 0.5 is half a percent
+                // set this to -1 to disable this
 
-            // TRADE TYPE 4:    STOP-LOSS
-        buySTOPPrice :  360, // set this to -1 if you don't want to buy any tokens
-        sellSTOPPrice : -1 // set this to -1 if you don't want to sell any tokens
+        //don't forget NO comma after the last variable
+    },
+    pair3: {
+        activate: false,
+        buyAddress: '0xaAa5B9e6c589642f98a1cDA99B9D024B8407285A',  
+        sellAddress: '0x2791bca1f2de4661ed88a30c99a7a9449aa84174', 
+        buyMoonBag: 0, // Don't ever trade this number of buyAddress coins
+        sellMoonBag: 0, // Don't ever trade this number of sellAddress coins
+
+        tradeType: 'BUY-SELL-PRICE-LIMITS',
+
+        // TRADE TYPE 1:    BUY-SELL-PRICE-LIMITS
+        buyPrice :  6, // set this to -1 if you don't want to buy any tokens
+        sellPrice : 10 // set this to -1 if you don't want to sell any tokens
+
+        //don't forget NO comma after the last variable
     },
     pair4: {
         activate: false,
@@ -66,20 +71,24 @@ const tradeParameters = {
            // TRADE TYPE 5:    TRAILING-STOP-LOSS
         buySTOPPctTSL :  10, // the ammount in percent above the lowest price to execute your buy, 50 is 50 percent, 0.5 is half a percent
         sellSTOPPctTSL : -1 // the ammount in percent above the lowest price to execute your buy, 50 is 50 percent, 0.5 is half a percent
+
+        //don't forget NO comma after the last variable
     },
     pair5: {
-        activate: false,
-        buyAddress: 'BNB',
+        activate: true,
+        buyAddress: '0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82',
         sellAddress: '0xe9e7cea3dedca5984780bafc599bd69add087d56',
         buyMoonBag: 0, // Don't ever trade this number of buyAddress coins
         sellMoonBag: 0, // Don't ever trade this number of sellAddress coins
 
-        tradeType: 'DEAD-CAT-BOUNCE',
+        tradeType: 'SMART-RANGE',
 
-            // TRADE TYPE 2:    DEAD-CAT-BOUNCE
-        buyPriceDCB :  1, 
-        sellPctDCB : 50, // this is the percentage increase following the purchase 50 is fifty percent, 0.5 is half a percent
-        stopAfterOneBounceDCB : true,
+            // TRADE TYPE 6:    SMART-RANGE
+        buyInitialTargetSR : 13,    // where the initial buy starts
+        profitPctSR : 5,   // profit targe percentage
+        reversalPctSR : 0.5   // amount the trailing stop needs to reverse by to get triggered
+
+        //don't forget NO comma after the last variable
     },
     template: {
         activate: false, // if this is false then this trading strategy will not happen
@@ -117,8 +126,15 @@ const tradeParameters = {
             // TRADE TYPE 5:    TRAILING-STOP-LOSS
         buySTOPPctTSL :  10, // the ammount in percent above the lowest price to execute your buy, 50 is 50 percent, 0.5 is half a percent
                 // set this to -1 to disable this
-        sellSTOPPctTSL : 10 // the ammount in percent above the lowest price to execute your buy, 50 is 50 percent, 0.5 is half a percent
+        sellSTOPPctTSL : 10, // the ammount in percent above the lowest price to execute your buy, 50 is 50 percent, 0.5 is half a percent
                 // set this to -1 to disable this
+
+            // TRADE TYPE 6:    SMART-RANGE
+        buyInitialTargetSR : 50,    // where the initial buy starts
+        profitPctSR : 10,   // profit targe percentage
+        reversalPctSR : 2   // amount the trailing stop needs to reverse by to get triggered
+
+        //don't forget NO comma after the last variable
     }
 }
 
@@ -165,6 +181,17 @@ module.exports = {
             from 110 to 55 to catch a rebound, this would be a setting of 10 in the buySTOPPctTSL. 
             Setting stops too close to the market can be painful if the market is volatile.
 
+        TRADE TYPE 6:   SMART-RANGE
+            You set a buy target price to start the trade. As the market drops to that level a trailing stop
+            loss will follow the market down and will buy when the market reverses by reversalPctSR %.
+            so if the buy is at 50 and the reversalPctSR is 2 then you could buy when the price spikes
+            above 51 (or you could follow it down further). Once you've bought a sell is initiated at 
+            profitPctSR % above the purchase trigger if this is 10 then in the example above the sell 
+            will look for the price to go up to 56.1 (= 51 * 110%) and then follow the market up until 
+            it drops by reversalPctSR, using the same example this could be when the market drops down 
+            to 54.978 (= 56.1 * 98%). When this is complete the cycle starts again at lower of: the 
+            initial buy price (50) or wherever profitPctSR below the last sale.
+            In case you already own the asset an initial sale is set at the initial price + profitPctSR%
 
 
     PARAMETER EXPLANATION:

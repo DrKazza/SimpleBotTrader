@@ -28,6 +28,10 @@ const checkVariableValidity = (globalParams, thisTradeParams) => {
             isBadVariable(`_minBnbToTrade`, `Needs to be 0.01 or higher to prevent worthless trades`);
             return false;
         }
+        if (!isNumberMoreThanEq(globalParams._haltOnLowBNB, 0.001)) {
+            isBadVariable(`_haltOnLowBNB`, `Needs to be 0.001 or higher so you don't dry out your wallet`);
+            return false;
+        }
         if (!isNumberMoreThanEq(globalParams._executionSlippage, 0.03)) {
             isBadVariable(`_executionSlippage`, `Needs to be 0.03 or higher get trades through`);
             return false;
@@ -104,6 +108,21 @@ const checkVariableValidity = (globalParams, thisTradeParams) => {
                     goodVariables = false;
                 }
                 break;
+            case 'SMART-RANGE':
+                    if (!isNumber(thisTradeParams.buyInitialTargetSR)) {
+                        isBadVariable(`buyInitialTargetSR`, `Needs to be a number`);
+                        goodVariables = false;
+                    }
+                    if (!isNumber(thisTradeParams.profitPctSR)) {
+                        isBadVariable(`profitPctSR`, `Needs to be a number`);
+                        goodVariables = false;
+                    }
+                    if (!isNumber(thisTradeParams.reversalPctSR)) {
+                        isBadVariable(`reversalPctSR`, `Needs to be a number`);
+                        goodVariables = false;
+                    }
+                    break;
+    
             default:
                 isBadVariable(`tradeType`, `tradeType doesn't match a valid trading strategy`)
                 goodVariables = false;
@@ -230,12 +249,20 @@ const verboseTradeDescription = async (globalParams, thisTradeParams, initialPri
                 //no sell strategy print nothing
             }
             break;
+        case 'SMART-RANGE':
+            msg1 = `About to start a Smart Range Trading strategy:`
+            msg2 = `Buying as many ${buyTicker} using ${sellTicker} tokens as possible around a price of ${thisTradeParams.buyInitialTargetSR}.
+            While also holding back ${thisTradeParams.sellMoonBag} ${sellTicker}.`
+            msg3 = `Selling as many ${buyTicker} tokens as possible for ${sellTicker} tokens ${thisTradeParams.profitPctSR}% above the last purchase.
+            While also holding back ${thisTradeParams.buyMoonBag} ${buyTicker}.`
+            msg4 = `Buys will let the market sell off will wait for a reversal of ${thisTradeParams.reversalPctSR}% before it executes, ditto sells in a rally.`
+            break;
     }
     msg5 = `Always keeping approx ${globalParams._keepBNB} BNB in the wallet for gas etc.`;
 //    if (thisTradeParams.buyMoonBag > 0) {msg6 = `And always keeping ${thisTradeParams.buyMoonBag} ${buyTicker} Tokens for HODL.`} 
 //    if (thisTradeParams.sellMoonBag > 0) {msg6 += `And always keeping ${thisTradeParams.sellMoonBag} ${sellTicker} Tokens for HODL.`} 
     msg7 = `\nInitial Price for ${buyTicker} Token = ${initialPrice} (${sellTicker}/${buyTicker}).\n Inverse: ${Number((1/initialPrice).toPrecision(6))} (${buyTicker}/${sellTicker})`
-    return (msg1 + `\n` + msg2 + `\n` +msg3 + `\n` +msg4 + `\n` +msg5 + msg6 + msg7 + `\n`)
+    return (`\n ************** \n` + msg1 + `\n` + msg2 + `\n` +msg3 + `\n` +msg4 + `\n` +msg5 + msg6 + msg7 + `\n`)
 }
 
 
