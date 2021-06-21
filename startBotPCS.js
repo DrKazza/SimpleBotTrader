@@ -1111,7 +1111,7 @@ const init = async () => {
             if (checkInitialSettings(tradeParameters[thisTradePair], midPrice)) {
                 verboseDialog = await verboseTradeDescription(globalParams, tradeParameters[thisTradePair], midPrice);
                 //  create log file
-                var tickerStream = fs.createWriteStream(`TradeLog.${dateStamp}.txt`, {flags: 'a'});
+                var tickerStream = fs.createWriteStream(`TradeLogPCS.${dateStamp}.txt`, {flags: 'a'});
                 appendTradeLog(tickerStream, verboseDialog);
                 startExecution = await confirmDialog(`If details look correct`)
                 if (startExecution === 'Y' | startExecution === 'y') {
@@ -1188,12 +1188,3 @@ const init = async () => {
 }
 
 init();
-
-/* TO DO
-1) finish price calculations and save to stream - divide by decimals
-3) look at code to see if you need to reuse effective price
-4) finish coding the smartrange <- TO TEST
-5) kill if BNB is less than x <- TO TEST
-8) CODING: MATIC
-9) CODING: uniswap
-*/
