@@ -1,3 +1,5 @@
+// if you're feeling grateful - pls chuck me some coins :)
+// 0xcF3F6B64C216Fd624408F02c1F89FC330BEDA92F
 
 // To bring in private details
 require("dotenv").config();
@@ -10,7 +12,7 @@ const ethers = require('ethers');
 const Web3 = require('web3');
 const BN = Web3.utils.BN;
 const abi = require('human-standard-token-abi');
-const {ChainId, Token, TokenAmount, Fetcher: v2Fetcher, Pair, Route, Trade, TradeType, Percent} = require('@pancakeswap-libs/sdk');
+const {Token, TokenAmount, Fetcher: v2Fetcher, Pair, Route, Trade, TradeType, Percent} = require('@pancakeswap-libs/sdk');
 const {JsonRpcProvider} = require("@ethersproject/providers");
 
 // To get the trade settings
@@ -27,7 +29,8 @@ const d = new Date();
 const dateStamp = d.getFullYear()*10000 + (d.getMonth() + 1) *100 + d.getDate();
 const {confirmDialog, appendTradeLog, delay} = require('./tradelog-code.js');
 const fs = require("fs");
-const maxUint256 = web3.utils.toBN(2).pow(web3.utils.toBN(256)).sub(web3.utils.toBN(1));
+const maxUint256 = ethers.constants.MaxUint256;
+const sensibleLimit = ethers.BigNumber.from('9999999999999999999999999999999999999')
 
 const wallet = ethers.Wallet.fromMnemonic(secretKey);
 const account = wallet.connect(provider);
@@ -41,10 +44,12 @@ const cleanAddress = (thisTokenAddress) => {
     }
 }
 const lpRouter = cleanAddress(globalParams._pcsLPV2);
+const chainID = globalParams._chainID;
+const liveTrading = globalParams._liveTrading;
 const wbnbAddress = cleanAddress(globalParams._wbnbAddress);
-const WBNBTOK = new Token(ChainId.MAINNET, wbnbAddress, 18);
+const WBNBTOK = new Token(chainID, wbnbAddress, 18);
 const busdAddress = cleanAddress(globalParams._busdAddress);
-const BUSDTOK = new Token(ChainId.MAINNET, busdAddress, 18);
+const BUSDTOK = new Token(chainID, busdAddress, 18);
 const routerV2 = new ethers.Contract (lpRouter, [
     'function getAmountsOut(uint amountIn, address[] memory path) public view returns (uint[] memory amounts)',
     'function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) external payable returns (uint[] memory amounts)',
@@ -62,7 +67,8 @@ const minBnbToTrade = ethers.utils.parseUnits(globalParams._minBnbToTrade.toStri
 // Checking and changing allowance of the LP to spend tokens on your behalf
 const getAllowance = async (tickerTokenAddress, thisWalletAddress, liquidityPoolAddress) => {
     let contract = new web3.eth.Contract(abi, tickerTokenAddress);
-    let approvalLimit = await contract.methods.allowance(thisWalletAddress, liquidityPoolAddress);
+    let approvalLimit = await contract.methods.allowance(thisWalletAddress, liquidityPoolAddress).call();
+    console.log(`approvalLimit: ${approvalLimit}`)
     return approvalLimit;
 }
 
@@ -91,8 +97,8 @@ const getWalletBalance = async (tickerTokenAddress, thisWalletAddress) => {
 
 // Pricing information
 const getDirectMid = async (buyAddress, buyDecimals, sellAddress, sellDecimals) => {
-    let BUYTOK = new Token(ChainId.MAINNET, buyAddress, buyDecimals); 
-    let SELLTOK = new Token(ChainId.MAINNET, sellAddress, sellDecimals); 
+    let BUYTOK = new Token(chainID, buyAddress, buyDecimals); 
+    let SELLTOK = new Token(chainID, sellAddress, sellDecimals); 
     let pair = await v2Fetcher.fetchPairData(BUYTOK, SELLTOK, provider);    
     let route = new Route([pair], SELLTOK);
     let spotPrice = await route.midPrice.toSignificant(6);
@@ -100,8 +106,8 @@ const getDirectMid = async (buyAddress, buyDecimals, sellAddress, sellDecimals) 
 }
 
 const getViaBNBMid = async (buyAddress, buyDecimals, sellAddress, sellDecimals) => {
-    let BUYTOK = new Token(ChainId.MAINNET, buyAddress, buyDecimals); 
-    let SELLTOK = new Token(ChainId.MAINNET, sellAddress, sellDecimals); 
+    let BUYTOK = new Token(chainID, buyAddress, buyDecimals); 
+    let SELLTOK = new Token(chainID, sellAddress, sellDecimals); 
     let pair1 = null;
     let pair2 = null;
     pair1 = await v2Fetcher.fetchPairData(SELLTOK, WBNBTOK, provider);
@@ -114,8 +120,8 @@ const getViaBNBMid = async (buyAddress, buyDecimals, sellAddress, sellDecimals) 
 const getDirectBid = async (buyAddress, buyDecimals, sellAddress, sellDecimals, sellAmount) => {
     console.log ('getting direct bid')
     try {
-        let BUYTOK = new Token(ChainId.MAINNET, buyAddress, buyDecimals); 
-        let SELLTOK = new Token(ChainId.MAINNET, sellAddress, sellDecimals);
+        let BUYTOK = new Token(chainID, buyAddress, buyDecimals); 
+        let SELLTOK = new Token(chainID, sellAddress, sellDecimals);
         let pair = await v2Fetcher.fetchPairData(BUYTOK, SELLTOK, provider);
         let route = new Route([pair], SELLTOK);
         let trade = new Trade(route, new TokenAmount(SELLTOK, sellAmount), TradeType.EXACT_INPUT)
@@ -131,8 +137,8 @@ const getDirectBid = async (buyAddress, buyDecimals, sellAddress, sellDecimals, 
 const getViaBNBBid = async (buyAddress, buyDecimals, sellAddress, sellDecimals, sellAmount) => {
     console.log ('getting viabnb bid')
     try {    
-        let BUYTOK = new Token(ChainId.MAINNET, buyAddress, buyDecimals); 
-        let SELLTOK = new Token(ChainId.MAINNET, sellAddress, sellDecimals);
+        let BUYTOK = new Token(chainID, buyAddress, buyDecimals); 
+        let SELLTOK = new Token(chainID, sellAddress, sellDecimals);
         let pair1 = await v2Fetcher.fetchPairData(SELLTOK, WBNBTOK, provider);
         let pair2 = await v2Fetcher.fetchPairData(WBNBTOK, BUYTOK, provider);
         let route = new Route([pair1, pair2], SELLTOK);
@@ -152,99 +158,119 @@ const getViaBNBBid = async (buyAddress, buyDecimals, sellAddress, sellDecimals, 
 
 const getApproval = async (thisTokenAddress, approvalLimit, walletAccount, liquidtyPoolRouter = lpRouter, thisGasPrice, thisGasLimit)  => {
     let contract = new ethers.Contract(thisTokenAddress, abi, walletAccount);
-    let approveResponse = await contract.approve(
-        liquidtyPoolRouter, 
-        approvalLimit,
-        {
-            gasLimit: thisGasLimit, 
-            gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
-        });
-    console.log(approveResponse);
-    return;
+    if (liveTrading) {
+        let approveResponse = await contract.approve(
+            liquidtyPoolRouter, 
+            approvalLimit,
+            {
+                gasLimit: thisGasLimit, 
+                gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
+            });
+        console.log(approveResponse);
+        return;
+    } else {
+        console.log(`Live trading disabled - Approval increase NOT submitted.`)
+        return
+    }
 }
 
 const swapExactBNBForTokens = async (buyAddress, tokensIn, tradeSlippage, thisGasPrice, thisGasLimit) => {
     let amountIn = tokensIn.toString();
     let amounts = await routerV2.getAmountsOut(amountIn, [wbnbAddress, buyAddress]);
     let amountOutMin = amounts[1].sub(amounts[1].mul(tradeSlippage.toString()).div('100'));
-    let tx = await routerV2.swapExactETHForTokens(
-        amountOutMin,
-        [wbnbAddress, buyAddress],
-        walletAddress,
-        Date.now() + 1000 * 60 * 10, //10 minutes
-        {
-            value: amountIn,
-            gasLimit: thisGasLimit, 
-            gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
-        }
-    )
-    console.log(`Transaction Submitted...`);
-    let receipt = await tx.wait();
-    // console.log(receipt);
-    return receipt;
+    if (liveTrading) {
+        let tx = await routerV2.swapExactETHForTokens(
+            amountOutMin,
+            [wbnbAddress, buyAddress],
+            walletAddress,
+            Date.now() + 1000 * 60 * 10, //10 minutes
+            {
+                value: amountIn,
+                gasLimit: thisGasLimit, 
+                gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
+            }
+        )
+        console.log(`Transaction Submitted...`);
+        let receipt = await tx.wait();
+        return receipt;
+    } else {
+        console.log(`Live trading disabled - transaction NOT submitted.`)
+    }
 }
 
 const swapExactTokensForBNB = async (sellAddress, tokensIn, tradeSlippage, thisGasPrice, thisGasLimit) => {
     let amountIn = tokensIn.toString()
     let amounts = await routerV2.getAmountsOut(amountIn, [sellAddress, wbnbAddress]);
     let amountOutMin = amounts[1].sub(amounts[1].mul(tradeSlippage.toString()).div('100'));
-    let tx = await routerV2.swapExactTokensForETH(
-        amountIn, 
-        amountOutMin,
-        [sellAddress, wbnbAddress],
-        walletAddress,
-        Date.now() + 1000 * 60 * 10, //10 minutes
-        {
-            gasLimit: thisGasLimit, 
-            gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
-        }
-    )
-    console.log(`Transaction Submitted...`);
-    let receipt = await tx.wait();
-    // console.log(receipt);
-    return receipt;
+    if (liveTrading) {
+        let tx = await routerV2.swapExactTokensForETH(
+            amountIn, 
+            amountOutMin,
+            [sellAddress, wbnbAddress],
+            walletAddress,
+            Date.now() + 1000 * 60 * 10, //10 minutes
+            {
+                gasLimit: thisGasLimit, 
+                gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
+            }
+        )
+        console.log(`Transaction Submitted...`);
+        let receipt = await tx.wait();
+        return receipt;
+    } else {
+        console.log(`Live trading disabled - transaction NOT submitted.`)
+        return
+    }
 }
 
 const swapExactTokForTok = async (buyAddress, sellAddress, tokensIn, tradeSlippage, thisGasPrice, thisGasLimit) => {
     let amountIn = tokensIn.toString()
     let amounts = await routerV2.getAmountsOut(amountIn, [sellAddress, buyAddress]);
     let amountOutMin = amounts[1].sub(amounts[1].mul(tradeSlippage.toString()).div('100'));
-    let tx = await routerV2.swapExactTokensForTokens(
-        amountIn, 
-        amountOutMin,
-        [sellAddress, buyAddress],
-        walletAddress,
-        Date.now() + 1000 * 60 * 10, //10 minutes
-        {
-            gasLimit: thisGasLimit, 
-            gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
-        }
-    )
-    console.log(`Transaction Submitted...`);
-    let receipt = await tx.wait();
-    // console.log(receipt);
-    return receipt;
+    if (liveTrading) {
+        let tx = await routerV2.swapExactTokensForTokens(
+            amountIn, 
+            amountOutMin,
+            [sellAddress, buyAddress],
+            walletAddress,
+            Date.now() + 1000 * 60 * 10, //10 minutes
+            {
+                gasLimit: thisGasLimit, 
+                gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
+            }
+        )
+        console.log(`Transaction Submitted...`);
+        let receipt = await tx.wait();
+        return receipt;
+    } else {
+        console.log(`Live trading disabled - transaction NOT submitted.`)
+        return
+    }
 }
 
 const swapExactTokForTokViaBNB = async (buyAddress, sellAddress, tokensIn, tradeSlippage, thisGasPrice, thisGasLimit) => {
     let amountIn = tokensIn.toString()
     let amounts = await routerV2.getAmountsOut(amountIn, [sellAddress, buyAddress]);
     let amountOutMin = amounts[1].sub(amounts[1].mul(tradeSlippage.toString()).div('100'));
-    let tx = await routerV2.swapExactTokensForTokens(
-        amountIn, 
-        amountOutMin,
-        [sellAddress, wbnbAddress, buyAddress],
-        walletAddress,
-        Date.now() + 1000 * 60 * 10, //10 minutes
-        {
-            gasLimit: thisGasLimit, 
-            gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
-        }
-    )
-    console.log(`Transaction Submitted...`);
-    let receipt = await tx.wait();
-    // console.log(receipt);
-    return receipt;
+    if (liveTrading) {
+        let tx = await routerV2.swapExactTokensForTokens(
+            amountIn, 
+            amountOutMin,
+            [sellAddress, wbnbAddress, buyAddress],
+            walletAddress,
+            Date.now() + 1000 * 60 * 10, //10 minutes
+            {
+                gasLimit: thisGasLimit, 
+                gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
+            }
+        )
+        console.log(`Transaction Submitted...`);
+        let receipt = await tx.wait();
+        return receipt;
+    } else {
+        console.log(`Live trading disabled - transaction NOT submitted.`)
+        return
+    }
 }
 
 
@@ -267,7 +293,8 @@ const getPairBalances = async (buyTokenAddress, sellTokenAddress, walletAddress)
 const confirmAndExtendAllowance = async (thisTokenAddress, walletAddress, liquidityPoolAddress, thisTokenTicker) => {
     if (thisTokenAddress === wbnbAddress) { return true; } else {        
         let currentAllowance = await getAllowance(thisTokenAddress, walletAddress, liquidityPoolAddress);
-        if (currentAllowance < maxUint256) {
+        let curAllowBN = ethers.BigNumber.from(currentAllowance.toString())
+        if (curAllowBN.lte(sensibleLimit)) {
             console.log(`Getting approval for ${thisTokenTicker}`)
             await getApproval(thisTokenAddress, maxUint256, account, globalParams._pcsLPV2, globalParams._gasPrice, globalParams._gasApprovalLimit);
             return true;
@@ -1188,3 +1215,6 @@ const init = async () => {
 }
 
 init();
+
+// if you're feeling grateful - pls chuck me some coins :)
+// 0xcF3F6B64C216Fd624408F02c1F89FC330BEDA92F

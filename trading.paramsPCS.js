@@ -1,3 +1,6 @@
+// if you're feeling grateful - pls chuck me some coins :)
+// 0xcF3F6B64C216Fd624408F02c1F89FC330BEDA92F
+
 // PLEASE READ THE COMMENTS AT THE END IF YOU DON'T KNOW WHAT THESE PARAMETERS MEAN
 // Some coin tokens:
 // CAKE = 0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82

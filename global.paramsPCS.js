@@ -1,6 +1,8 @@
 // PLEASE READ THE COMMENTS AT THE END IF YOU DON'T KNOW WHAT THESE PARAMETERS MEAN
 
 const globalParams = {
+        // Set this to false to turn on pretent/paper trading mode
+        _liveTrading : false,
 
     // Global parameters
     _keepBNB :   0.1,   // This will always keep this amount of BNB in your wallet - don't set it to zero! Min of 0.1
@@ -8,6 +10,7 @@ const globalParams = {
     _haltOnLowBNB: 0.01,
 
     _rpcurl : 'https://bsc-dataseed1.binance.org/',
+    _chainID : 56,
 
     // Global Addresses
     _pcsLPV2 :'0x10ED43C718714eb63d5aA57B78B54704E256024E',   // PancakeSwap Router v2
