@@ -462,7 +462,7 @@ const executeBSPL = async (thisTradePair, newPrice, logstream) => {
                 return;
             }
         }
-        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
+        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
         await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
         let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let actualPurchase = new BN(finalBalances[1])
@@ -523,7 +523,7 @@ const executeDCB = async (thisTradePair, newPrice, logstream) => {
                 return;
             }
         }
-        appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
+        appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
         await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
         tradeParameters[thisTradePair.pairname].sellPriceDCB = bestPriceAndRoute[0] * (1 + thisTradePair.sellPctDCB / 100);
         let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress);
@@ -571,7 +571,7 @@ const executeDCB = async (thisTradePair, newPrice, logstream) => {
                 return;
             }
         }
-        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
+        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
         await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
         if (thisTradePair.stopAfterOneBounceDCB) {
             // kill the process altogether
@@ -645,7 +645,7 @@ const executePRT = async (thisTradePair, newPrice, logstream) => {
                 return;
             }
         }
-        appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
+        appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
         await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
         tradeParameters[thisTradePair.pairname].sellPricePRT = bestPriceAndRoute[0] * (1 + thisTradePair.sellPctPRT / 100);
         let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress);
@@ -691,7 +691,7 @@ const executePRT = async (thisTradePair, newPrice, logstream) => {
                 return;
             }
         }
-        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
+        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
         await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
         tradeParameters[thisTradePair.pairname].buyPricePRT = bestPriceAndRoute[0] * (1 - thisTradePair.buyPctPRT / 100);
         let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
@@ -745,7 +745,7 @@ const executeSL = async (thisTradePair, newPrice, logstream) => {
                 return;
             }
         }
-        appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
+        appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
         await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
         let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress);
         let actualPurchase = new BN(finalBalances[0]);
@@ -792,7 +792,7 @@ const executeSL = async (thisTradePair, newPrice, logstream) => {
                 return;
             }
         }
-        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
+        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
         await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
         let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let actualPurchase = new BN(finalBalances[1])
@@ -860,7 +860,7 @@ const executeTSL = async (thisTradePair, newPrice, logstream) => {
                 return;
             }
         }
-        appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
+        appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
         await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
 
         // when you execute a buy you turn off the buy signal and turn on the sell signal
@@ -911,7 +911,7 @@ const executeTSL = async (thisTradePair, newPrice, logstream) => {
                 return;
             }
         }
-        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
+        appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
         await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
         // when you execute a buy you turn off the buy signal and turn on the sell signal
         // likewise when you sell you turn on the buy and turn off the sell
@@ -991,7 +991,7 @@ const executeSmartRange = async (thisTradePair, newPrice, logstream) => {
                     return;
                 }
             }
-            appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
+            appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
             await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
             // set the sell target to be exected buy + profit%
             tradeParameters[thisTradePair.pairname].sellTargetSR = newPrice * (1 + thisTradePair.profitPctSR / 100);
@@ -1062,7 +1062,7 @@ const executeSmartRange = async (thisTradePair, newPrice, logstream) => {
                     return;
                 }
             }
-            appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}`);
+            appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
             await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
             let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
             let actualPurchase = new BN(finalBalances[1])

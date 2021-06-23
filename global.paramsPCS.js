@@ -1,8 +1,8 @@
 // PLEASE READ THE COMMENTS AT THE END IF YOU DON'T KNOW WHAT THESE PARAMETERS MEAN
 
 const globalParams = {
-        // Set this to false to turn on pretent/paper trading mode
-        _liveTrading : false,
+    // Set this to false to turn on pretent/paper trading mode
+    _liveTrading : true,
 
     // Global parameters
     _keepBNB :   0.1,   // This will always keep this amount of BNB in your wallet - don't set it to zero! Min of 0.1

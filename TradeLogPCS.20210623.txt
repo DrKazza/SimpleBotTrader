@@ -1,0 +1,53 @@
+13:34:26 - 
+ ************** 
+About to start a Smart Range Trading strategy:
+Buying as many Cake using BUSD tokens as possible around a price of 13.
+            While also holding back 0 BUSD.
+Selling as many Cake tokens as possible for BUSD tokens 5% above the last purchase.
+            While also holding back 0 Cake.
+Buys will let the market sell off will wait for a reversal of 0.5% before it executes, ditto sells in a rally.
+Always keeping approx 0.1 BNB in the wallet for gas etc.
+
+Initial Price for Cake Token = 13.617 (BUSD/Cake).
+ Inverse: 0.0734376 (Cake/BUSD)
+13:34:30 - Execution confirmed for pair5
+13:35:18 - 
+ ************** 
+About to start a Smart Range Trading strategy:
+Buying as many Cake using BUSD tokens as possible around a price of 13.
+            While also holding back 0 BUSD.
+Selling as many Cake tokens as possible for BUSD tokens 5% above the last purchase.
+            While also holding back 0 Cake.
+Buys will let the market sell off will wait for a reversal of 0.5% before it executes, ditto sells in a rally.
+Always keeping approx 0.1 BNB in the wallet for gas etc.
+
+Initial Price for Cake Token = 13.6245 (BUSD/Cake).
+ Inverse: 0.0733972 (Cake/BUSD)
+13:35:18 - Execution confirmed for pair5
+14:16:42 - Selling 10.8445 Cake tokens for BUSD
+14:16:46 -  About to hit up a sell trade hoping for 14.228514:16:53 - ****************
+            Sale successful:
+            ****************
+            Sold 10.8445 (Cake)
+            Bought 154.396 (BUSD)
+            effective price: 14.237315:39:14 - 
+ ************** 
+About to start a Smart Range Trading strategy:
+Buying as many Cake using BUSD tokens as possible around a price of 13.8.
+            While also holding back 0 BUSD.
+Selling as many Cake tokens as possible for BUSD tokens 5% above the last purchase.
+            While also holding back 0 Cake.
+Buys will let the market sell off will wait for a reversal of 0.5% before it executes, ditto sells in a rally.
+Always keeping approx 0.1 BNB in the wallet for gas etc.
+
+Initial Price for Cake Token = 13.9871 (BUSD/Cake).
+ Inverse: 0.0714944 (Cake/BUSD)
+15:39:14 - Execution confirmed for pair5
+16:16:59 - Spending 154.396 BUSD tokens on Cake
+16:17:00 -  About to hit up a buy trade hoping for 13.6074
+16:17:10 - ********************
+            Purchase successful:
+            ********************
+            Bought 11.2820 (Cake)
+            Sold 154.396 (BUSD)
+            effective price: 13.6851
