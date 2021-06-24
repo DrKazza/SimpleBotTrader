@@ -1,9 +1,7 @@
 /* Implement:
-1) quickswap Poly
-2) sushiswap Poly
-3) uniswap mainnet
-4) donations...!
-    if you're feeling grateful - pls chuck me some coins :)
-    0xcF3F6B64C216Fd624408F02c1F89FC330BEDA92F
+1) quickswap Poly - DONE & tested
+2) sushiswap Poly - DONE & tested
+3) uniswap mainnet - DONE & Partially tested - price works but no gas has been spent
+4) Gas estimate?
 
 */

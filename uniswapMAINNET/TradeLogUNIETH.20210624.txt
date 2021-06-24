@@ -1,0 +1,14 @@
+13:35:41 - 
+ ************** 
+About to start a Buy/Sell Limit strategy:
+Buying as many LIMIT using USDC tokens as possible at 0.01 (USDC/LIMIT) [inverse: 100.000]
+                While also holding back 0 USDC.
+Selling as many LIMIT for USDC tokens as possible at 1500.8 (USDC/LIMIT) [inverse: 0.000666311].
+                While also holding back 0 LIMIT.
+
+Always keeping approx 0.1 ETH in the wallet for gas etc.
+
+Initial Price for LIMIT Token = 38.3569 (USDC/LIMIT).
+ Inverse: 0.0260709 (LIMIT/USDC)
+13:35:48 - Execution confirmed for pair1
+13:35:48 - Low ETH Balance in wallet: 0.00000 ETH - execution halted

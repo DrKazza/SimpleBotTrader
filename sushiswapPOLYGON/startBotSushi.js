@@ -7,18 +7,18 @@ const secretKey = process.env.SECRETKEY;
 const walletAddress = process.env.WALLETADDRESS;
 
 
-// BSC & PCS Libraries
+// BSC & Sushiswap Libraries
 const ethers = require('ethers');
 const Web3 = require('web3');
 const BN = Web3.utils.BN;
 const abi = require('human-standard-token-abi');
-const {Token, TokenAmount, Fetcher: v2Fetcher, Pair, Route, Trade, TradeType, Percent} = require('@pancakeswap-libs/sdk');
+const {Token, TokenAmount, Fetcher: v2Fetcher, Pair, Route, Trade, TradeType, Percent} = require('@sushiswap/sdk');
 const {JsonRpcProvider} = require("@ethersproject/providers");
 
 // To get the trade settings
-const {tradeParameters} = require('./trading.paramsPCS.js');
-const {globalParams} = require('./global.paramsPCS.js');
-const {checkVariableValidity, checkInitialSettings, verboseTradeDescription} = require('./input-checksPCS.js');
+const {tradeParameters} = require('./trading.paramsSushi.js');
+const {globalParams} = require('./global.paramsSushi.js');
+const {checkVariableValidity, checkInitialSettings, verboseTradeDescription} = require('./input-checksSushi.js');
 
 const url = globalParams._rpcurl;
 const provider = new JsonRpcProvider(url);
@@ -37,8 +37,8 @@ const account = wallet.connect(provider);
 
 // a few fixed variables
 const cleanAddress = (thisTokenAddress) => {
-    if (thisTokenAddress === 'BNB') {
-        return Web3.utils.toChecksumAddress(globalParams._wbnbAddress);
+    if (thisTokenAddress === 'MATIC') {
+        return Web3.utils.toChecksumAddress(globalParams._wMATICAddress);
     } else {
         return Web3.utils.toChecksumAddress(thisTokenAddress);
     }
@@ -46,17 +46,17 @@ const cleanAddress = (thisTokenAddress) => {
 const lpRouter = cleanAddress(globalParams._routerLPV2);
 const chainID = globalParams._chainID;
 const liveTrading = globalParams._liveTrading;
-const wbnbAddress = cleanAddress(globalParams._wbnbAddress);
-const WBNBTOK = new Token(chainID, wbnbAddress, 18);
-const busdAddress = cleanAddress(globalParams._busdAddress);
-const BUSDTOK = new Token(chainID, busdAddress, 18);
+const wMATICAddress = cleanAddress(globalParams._wMATICAddress);
+const WMATICTOK = new Token(chainID, wMATICAddress, 18);
+const usdcAddress = cleanAddress(globalParams._usdcAddress);
+const USDCTOK = new Token(chainID, usdcAddress, 18);
 const routerV2 = new ethers.Contract (lpRouter, [
     'function getAmountsOut(uint amountIn, address[] memory path) public view returns (uint[] memory amounts)',
     'function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) external payable returns (uint[] memory amounts)',
     'function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)',
     'function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)'
     ], account );
-const minBnbToTrade = ethers.utils.parseUnits(globalParams._minBnbToTrade.toString(), 18)
+const minMATICToTrade = ethers.utils.parseUnits(globalParams._minMATICToTrade.toString(), 18)
 
 
 
@@ -86,7 +86,7 @@ const getTokenTicker = async (tickerTokenAddress) => {
 
 const getWalletBalance = async (tickerTokenAddress, thisWalletAddress) => {
     let balance = 0;
-    if (tickerTokenAddress === wbnbAddress) {
+    if (tickerTokenAddress === wMATICAddress) {
         balance = await web3.eth.getBalance(thisWalletAddress);
     } else {
         let contract = new web3.eth.Contract(abi, tickerTokenAddress);
@@ -105,13 +105,13 @@ const getDirectMid = async (buyAddress, buyDecimals, sellAddress, sellDecimals) 
     return spotPrice;
 }
 
-const getViaBNBMid = async (buyAddress, buyDecimals, sellAddress, sellDecimals) => {
+const getViaMATICMid = async (buyAddress, buyDecimals, sellAddress, sellDecimals) => {
     let BUYTOK = new Token(chainID, buyAddress, buyDecimals); 
     let SELLTOK = new Token(chainID, sellAddress, sellDecimals); 
     let pair1 = null;
     let pair2 = null;
-    pair1 = await v2Fetcher.fetchPairData(SELLTOK, WBNBTOK, provider);
-    pair2 = await v2Fetcher.fetchPairData(WBNBTOK, BUYTOK, provider);
+    pair1 = await v2Fetcher.fetchPairData(SELLTOK, WMATICTOK, provider);
+    pair2 = await v2Fetcher.fetchPairData(WMATICTOK, BUYTOK, provider);
     let route = new Route([pair1, pair2], SELLTOK);
     let spotPrice = await route.midPrice.toSignificant(6);
     return spotPrice;
@@ -134,20 +134,20 @@ const getDirectBid = async (buyAddress, buyDecimals, sellAddress, sellDecimals, 
     }
 }
 
-const getViaBNBBid = async (buyAddress, buyDecimals, sellAddress, sellDecimals, sellAmount) => {
-    console.log ('getting viabnb bid')
+const getViaMATICBid = async (buyAddress, buyDecimals, sellAddress, sellDecimals, sellAmount) => {
+    console.log ('getting viaMATIC bid')
     try {    
         let BUYTOK = new Token(chainID, buyAddress, buyDecimals); 
         let SELLTOK = new Token(chainID, sellAddress, sellDecimals);
-        let pair1 = await v2Fetcher.fetchPairData(SELLTOK, WBNBTOK, provider);
-        let pair2 = await v2Fetcher.fetchPairData(WBNBTOK, BUYTOK, provider);
+        let pair1 = await v2Fetcher.fetchPairData(SELLTOK, WMATICTOK, provider);
+        let pair2 = await v2Fetcher.fetchPairData(WMATICTOK, BUYTOK, provider);
         let route = new Route([pair1, pair2], SELLTOK);
         let trade = new Trade(route, new TokenAmount(SELLTOK, sellAmount), TradeType.EXACT_INPUT)
         let bidPrice = await trade.executionPrice.toSignificant(6);
-        console.log (`viabnb bid: ${bidPrice}`)
+        console.log (`viaMATIC bid: ${bidPrice}`)
         return bidPrice
     } catch (error) {
-        console.log (`no bid via BNB (that's a bit odd!)`)
+        console.log (`no bid via MATIC (that's a bit odd!)`)
         return -1;
     }
 }
@@ -174,14 +174,14 @@ const getApproval = async (thisTokenAddress, approvalLimit, walletAccount, liqui
     }
 }
 
-const swapExactBNBForTokens = async (buyAddress, tokensIn, tradeSlippage, thisGasPrice, thisGasLimit) => {
+const swapExactMATICForTokens = async (buyAddress, tokensIn, tradeSlippage, thisGasPrice, thisGasLimit) => {
     let amountIn = tokensIn.toString();
-    let amounts = await routerV2.getAmountsOut(amountIn, [wbnbAddress, buyAddress]);
+    let amounts = await routerV2.getAmountsOut(amountIn, [wMATICAddress, buyAddress]);
     let amountOutMin = amounts[1].sub(amounts[1].mul(tradeSlippage.toString()).div('100'));
     if (liveTrading) {
         let tx = await routerV2.swapExactETHForTokens(
             amountOutMin,
-            [wbnbAddress, buyAddress],
+            [wMATICAddress, buyAddress],
             walletAddress,
             Date.now() + 1000 * 60 * 10, //10 minutes
             {
@@ -198,15 +198,15 @@ const swapExactBNBForTokens = async (buyAddress, tokensIn, tradeSlippage, thisGa
     }
 }
 
-const swapExactTokensForBNB = async (sellAddress, tokensIn, tradeSlippage, thisGasPrice, thisGasLimit) => {
+const swapExactTokensForMATIC = async (sellAddress, tokensIn, tradeSlippage, thisGasPrice, thisGasLimit) => {
     let amountIn = tokensIn.toString()
-    let amounts = await routerV2.getAmountsOut(amountIn, [sellAddress, wbnbAddress]);
+    let amounts = await routerV2.getAmountsOut(amountIn, [sellAddress, wMATICAddress]);
     let amountOutMin = amounts[1].sub(amounts[1].mul(tradeSlippage.toString()).div('100'));
     if (liveTrading) {
         let tx = await routerV2.swapExactTokensForETH(
             amountIn, 
             amountOutMin,
-            [sellAddress, wbnbAddress],
+            [sellAddress, wMATICAddress],
             walletAddress,
             Date.now() + 1000 * 60 * 10, //10 minutes
             {
@@ -248,7 +248,7 @@ const swapExactTokForTok = async (buyAddress, sellAddress, tokensIn, tradeSlippa
     }
 }
 
-const swapExactTokForTokViaBNB = async (buyAddress, sellAddress, tokensIn, tradeSlippage, thisGasPrice, thisGasLimit) => {
+const swapExactTokForTokViaMATIC = async (buyAddress, sellAddress, tokensIn, tradeSlippage, thisGasPrice, thisGasLimit) => {
     let amountIn = tokensIn.toString()
     let amounts = await routerV2.getAmountsOut(amountIn, [sellAddress, buyAddress]);
     let amountOutMin = amounts[1].sub(amounts[1].mul(tradeSlippage.toString()).div('100'));
@@ -256,7 +256,7 @@ const swapExactTokForTokViaBNB = async (buyAddress, sellAddress, tokensIn, trade
         let tx = await routerV2.swapExactTokensForTokens(
             amountIn, 
             amountOutMin,
-            [sellAddress, wbnbAddress, buyAddress],
+            [sellAddress, wMATICAddress, buyAddress],
             walletAddress,
             Date.now() + 1000 * 60 * 10, //10 minutes
             {
@@ -291,7 +291,7 @@ const getPairBalances = async (buyTokenAddress, sellTokenAddress, walletAddress)
 }
 
 const confirmAndExtendAllowance = async (thisTokenAddress, walletAddress, liquidityPoolAddress, thisTokenTicker) => {
-    if (thisTokenAddress === wbnbAddress) { return true; } else {        
+    if (thisTokenAddress === wMATICAddress) { return true; } else {        
         let currentAllowance = await getAllowance(thisTokenAddress, walletAddress, liquidityPoolAddress);
         let curAllowBN = ethers.BigNumber.from(currentAllowance.toString())
         if (curAllowBN.lte(sensibleLimit)) {
@@ -308,11 +308,11 @@ const confirmAndExtendAllowance = async (thisTokenAddress, walletAddress, liquid
 
 const getMidPrice = async (buyAddress, buyDecimals, sellAddress, sellDecimals) => {
     try {
-        if (buyAddress === wbnbAddress || sellAddress === wbnbAddress) {
+        if (buyAddress === wMATICAddress || sellAddress === wMATICAddress) {
             let midPrice = await getDirectMid (buyAddress, buyDecimals, sellAddress, sellDecimals);
             return midPrice;
         } else {
-            let midPrice = await getViaBNBMid (buyAddress, buyDecimals, sellAddress, sellDecimals);
+            let midPrice = await getViaMATICMid (buyAddress, buyDecimals, sellAddress, sellDecimals);
             return midPrice;
 
         }
@@ -324,7 +324,7 @@ const getMidPrice = async (buyAddress, buyDecimals, sellAddress, sellDecimals) =
 const amountToSell = (assetAddress, assetDecimals, assetBalance, moonBag) => {
     let amtToSell = new BN(assetBalance);
     let dontSell = ethers.utils.parseUnits(moonBag.toString(), assetDecimals);
-    if (assetAddress === wbnbAddress) { dontSell.add(ethers.utils.parseUnits(globalParams._keepBNB.toString(), 18)) }
+    if (assetAddress === wMATICAddress) { dontSell.add(ethers.utils.parseUnits(globalParams._keepMATIC.toString(), 18)) }
     if (dontSell == 0) {
         return amtToSell
     } else if (dontSell >= amtToSell) {
@@ -334,11 +334,11 @@ const amountToSell = (assetAddress, assetDecimals, assetBalance, moonBag) => {
     } 
 }
 
-const getBnbEquivalent = async (thisTokenAddress, thisTokenDecimals, tokenAmount) => {
-    if (thisTokenAddress === wbnbAddress) {
+const getMATICEquivalent = async (thisTokenAddress, thisTokenDecimals, tokenAmount) => {
+    if (thisTokenAddress === wMATICAddress) {
         return tokenAmount;
     } else {
-        let midPrice = await getDirectMid(thisTokenAddress, thisTokenDecimals, wbnbAddress, 18);
+        let midPrice = await getDirectMid(thisTokenAddress, thisTokenDecimals, wMATICAddress, 18);
         return tokenAmount * midPrice;
     }
 }
@@ -348,14 +348,14 @@ const getBestPrice = async (buyAddress, buyDecimals, sellAddress, sellDecimals, 
     let bestRoute = 'Direct';
     let bestBid = await getDirectBid (buyAddress, buyDecimals, sellAddress, sellDecimals, sellAmount);
     console.log(bestBid + ' Direct Best Bid')
-    if (buyAddress === wbnbAddress || sellAddress === wbnbAddress) {
+    if (buyAddress === wMATICAddress || sellAddress === wMATICAddress) {
         return [1 / bestBid, bestRoute];
     } else {
-        let viaBNBBid = await getViaBNBBid (buyAddress, buyDecimals, sellAddress, sellDecimals, sellAmount);
+        let viaMATICBid = await getViaMATICBid (buyAddress, buyDecimals, sellAddress, sellDecimals, sellAmount);
 
-        if (viaBNBBid > bestBid || bestBid <= 0) {
-            bestBid = viaBNBBid;
-            bestRoute = 'viaBNB'
+        if (viaMATICBid > bestBid || bestBid <= 0) {
+            bestBid = viaMATICBid;
+            bestRoute = 'viaMATIC'
         }
         return [1 / bestBid, bestRoute];
         // you return 1 / best bid to get the price
@@ -364,12 +364,12 @@ const getBestPrice = async (buyAddress, buyDecimals, sellAddress, sellDecimals, 
 
 const executeTrade = async (buyAddress, sellAddress, amountToSpend, executionSlippage, gasPrice, gasTradingLimit, bestRoute, logstream) => {
     var receipt = []
-    if (bestRoute === 'viaBNB') {
-        receipt = await swapExactTokForTokViaBNB(buyAddress, sellAddress, amountToSpend, executionSlippage, gasPrice, gasTradingLimit);
-    } else if (buyAddress === wbnbAddress) {
-        receipt = await swapExactTokensForBNB(sellAddress, amountToSpend, executionSlippage, gasPrice, gasTradingLimit);
-    } else if (sellAddress === wbnbAddress) {
-        receipt = await swapExactBNBForTokens(buyAddress, amountToSpend, executionSlippage, gasPrice, gasTradingLimit);
+    if (bestRoute === 'viaMATIC') {
+        receipt = await swapExactTokForTokViaMATIC(buyAddress, sellAddress, amountToSpend, executionSlippage, gasPrice, gasTradingLimit);
+    } else if (buyAddress === wMATICAddress) {
+        receipt = await swapExactTokensForMATIC(sellAddress, amountToSpend, executionSlippage, gasPrice, gasTradingLimit);
+    } else if (sellAddress === wMATICAddress) {
+        receipt = await swapExactMATICForTokens(buyAddress, amountToSpend, executionSlippage, gasPrice, gasTradingLimit);
     } else {
         receipt = await swapExactTokForTok(buyAddress, sellAddress, amountToSpend, executionSlippage, gasPrice, gasTradingLimit);
     }
@@ -394,15 +394,15 @@ const executeBSPL = async (thisTradePair, newPrice, logstream) => {
         initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let sellAssetBalance = initialBalances[1];
         let amountToSpend = amountToSell(thisTradePair.sellAddress, thisTradePair.sellDecimals, sellAssetBalance, thisTradePair.sellMoonBag);
-        let bnbEquivalent = await getBnbEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
-        if (bnbEquivalent < minBnbToTrade) {
+        let MATICEquivalent = await getMATICEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
+        if (MATICEquivalent < minMATICToTrade) {
             // amount to trade is too small - don't bother, also don't output this to the logfile
-            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minMATICToTrade} in MATIC equivalents`);
             return;
         }
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
         appendTradeLog(logstream, `Spending ${textAmountToSpend} ${thisTradePair.sellTicker} tokens on ${thisTradePair.buyTicker}\n`);
-        // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+        // look at the mid and compare to direct bid and viaMATIC bid (if appropriate)
         let bestPriceAndRoute = await getBestPrice(thisTradePair.buyAddress, thisTradePair.buyDecimals, thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
         if (bestPriceAndRoute[0] === -1) {
             appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
@@ -439,15 +439,15 @@ const executeBSPL = async (thisTradePair, newPrice, logstream) => {
         initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let buyAssetBalance = initialBalances[0];
         let amountToSpend = amountToSell(thisTradePair.buyAddress, thisTradePair.buyDecimals, buyAssetBalance, thisTradePair.buyMoonBag);
-        let bnbEquivalent = await getBnbEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
-        if (bnbEquivalent < minBnbToTrade) {
+        let MATICEquivalent = await getMATICEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
+        if (MATICEquivalent < minMATICToTrade) {
             // amount to trade is too small - don't bother
-            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minMATICToTrade} in MATIC equivalents`);
             return;
         } 
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
         appendTradeLog(logstream, `Selling ${textAmountToSpend} ${thisTradePair.buyTicker} tokens for ${thisTradePair.sellTicker}\n`);
-        // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+        // look at the mid and compare to direct bid and viaMATIC bid (if appropriate)
         let bestPriceAndRoute = await getBestPrice(thisTradePair.sellAddress, thisTradePair.sellDecimals, thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
         bestPriceAndRoute[0] = 1 / bestPriceAndRoute[0];
         if (bestPriceAndRoute[0] === -1) {
@@ -501,15 +501,15 @@ const executeDCB = async (thisTradePair, newPrice, logstream) => {
         initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let sellAssetBalance = initialBalances[1];
         let amountToSpend = amountToSell(thisTradePair.sellAddress, thisTradePair.sellDecimals, sellAssetBalance, thisTradePair.sellMoonBag);
-        let bnbEquivalent = await getBnbEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
-        if (bnbEquivalent < minBnbToTrade) {
+        let MATICEquivalent = await getMATICEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
+        if (MATICEquivalent < minMATICToTrade) {
             // amount to trade is too small - don't bother, also don't output this to the logfile
-            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minMATICToTrade} in MATIC equivalents`);
             return;
         }
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
         appendTradeLog(logstream, `Spending ${textAmountToSpend} ${thisTradePair.sellTicker} tokens on ${thisTradePair.buyTicker}\n`);
-        // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+        // look at the mid and compare to direct bid and viaMATIC bid (if appropriate)
         let bestPriceAndRoute = await getBestPrice(thisTradePair.buyAddress, thisTradePair.buyDecimals, thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
         if (bestPriceAndRoute[0] === -1) {
             appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
@@ -547,16 +547,16 @@ const executeDCB = async (thisTradePair, newPrice, logstream) => {
         initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let buyAssetBalance = initialBalances[0];
         let amountToSpend = amountToSell(thisTradePair.buyAddress, thisTradePair.buyDecimals, buyAssetBalance, thisTradePair.buyMoonBag);
-        let bnbEquivalent = await getBnbEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
+        let MATICEquivalent = await getMATICEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
 
-        if (bnbEquivalent < minBnbToTrade) {
+        if (MATICEquivalent < minMATICToTrade) {
             // amount to trade is too small - don't bother
-            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minMATICToTrade} in MATIC equivalents`);
             return;
         } 
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
         appendTradeLog(logstream, `Selling ${textAmountToSpend} ${thisTradePair.buyTicker} tokens for ${thisTradePair.sellTicker}\n`);
-        // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+        // look at the mid and compare to direct bid and viaMATIC bid (if appropriate)
         let bestPriceAndRoute = await getBestPrice(thisTradePair.sellAddress, thisTradePair.sellDecimals, thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
         if (bestPriceAndRoute[0] === -1) {
             appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
@@ -623,15 +623,15 @@ const executePRT = async (thisTradePair, newPrice, logstream) => {
         initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let sellAssetBalance = initialBalances[1];
         let amountToSpend = amountToSell(thisTradePair.sellAddress, thisTradePair.sellDecimals, sellAssetBalance, thisTradePair.sellMoonBag);
-        let bnbEquivalent = await getBnbEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
-        if (bnbEquivalent < minBnbToTrade) {
+        let MATICEquivalent = await getMATICEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
+        if (MATICEquivalent < minMATICToTrade) {
             // amount to trade is too small - don't bother, also don't output this to the logfile
-            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minMATICToTrade} in MATIC equivalents`);
             return;
         }
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
         appendTradeLog(logstream, `Spending ${textAmountToSpend} ${thisTradePair.sellTicker} tokens on ${thisTradePair.buyTicker}\n`);
-        // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+        // look at the mid and compare to direct bid and viaMATIC bid (if appropriate)
         let bestPriceAndRoute = await getBestPrice(thisTradePair.buyAddress, thisTradePair.buyDecimals, thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
         if (bestPriceAndRoute[0] === -1) {
             appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
@@ -667,16 +667,16 @@ const executePRT = async (thisTradePair, newPrice, logstream) => {
         initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let buyAssetBalance = initialBalances[0];
         let amountToSpend = amountToSell(thisTradePair.buyAddress, thisTradePair.buyDecimals, buyAssetBalance, thisTradePair.buyMoonBag);
-        let bnbEquivalent = await getBnbEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
+        let MATICEquivalent = await getMATICEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
 
-        if (bnbEquivalent < minBnbToTrade) {
+        if (MATICEquivalent < minMATICToTrade) {
             // amount to trade is too small - don't bother
-            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minMATICToTrade} in MATIC equivalents`);
             return;
         } 
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
         appendTradeLog(logstream, `Selling ${textAmountToSpend} ${thisTradePair.buyTicker} tokens for ${thisTradePair.sellTicker}\n`);
-        // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+        // look at the mid and compare to direct bid and viaMATIC bid (if appropriate)
         let bestPriceAndRoute = await getBestPrice(thisTradePair.sellAddress, thisTradePair.sellDecimals, thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
         if (bestPriceAndRoute[0] === -1) {
             appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
@@ -723,15 +723,15 @@ const executeSL = async (thisTradePair, newPrice, logstream) => {
         initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let sellAssetBalance = initialBalances[1];
         let amountToSpend = amountToSell(thisTradePair.sellAddress, thisTradePair.sellDecimals, sellAssetBalance, thisTradePair.sellMoonBag);
-        let bnbEquivalent = await getBnbEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
-        if (bnbEquivalent < minBnbToTrade) {
+        let MATICEquivalent = await getMATICEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
+        if (MATICEquivalent < minMATICToTrade) {
             // amount to trade is too small - don't bother, also don't output this to the logfile
-            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minMATICToTrade} in MATIC equivalents`);
             return;
         }
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
         appendTradeLog(logstream, `Spending ${textAmountToSpend} ${thisTradePair.sellTicker} tokens on ${thisTradePair.buyTicker}\n`);
-        // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+        // look at the mid and compare to direct bid and viaMATIC bid (if appropriate)
         let bestPriceAndRoute = await getBestPrice(thisTradePair.buyAddress, thisTradePair.buyDecimals, thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
         if (bestPriceAndRoute[0] === -1) {
             appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
@@ -768,16 +768,16 @@ const executeSL = async (thisTradePair, newPrice, logstream) => {
         initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let buyAssetBalance = initialBalances[0];
         let amountToSpend = amountToSell(thisTradePair.buyAddress, thisTradePair.buyDecimals, buyAssetBalance, thisTradePair.buyMoonBag);
-        let bnbEquivalent = await getBnbEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
+        let MATICEquivalent = await getMATICEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
 
-        if (bnbEquivalent < minBnbToTrade) {
+        if (MATICEquivalent < minMATICToTrade) {
             // amount to trade is too small - don't bother
-            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minMATICToTrade} in MATIC equivalents`);
             return;
         } 
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
         appendTradeLog(logstream, `Selling ${textAmountToSpend} ${thisTradePair.buyTicker} tokens for ${thisTradePair.sellTicker}\n`);
-        // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+        // look at the mid and compare to direct bid and viaMATIC bid (if appropriate)
         let bestPriceAndRoute = await getBestPrice(thisTradePair.sellAddress, thisTradePair.sellDecimals, thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
         if (bestPriceAndRoute[0] === -1) {
             appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
@@ -838,15 +838,15 @@ const executeTSL = async (thisTradePair, newPrice, logstream) => {
         initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let sellAssetBalance = initialBalances[1];
         let amountToSpend = amountToSell(thisTradePair.sellAddress, thisTradePair.sellDecimals, sellAssetBalance, thisTradePair.sellMoonBag);
-        let bnbEquivalent = await getBnbEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
-        if (bnbEquivalent < minBnbToTrade) {
+        let MATICEquivalent = await getMATICEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
+        if (MATICEquivalent < minMATICToTrade) {
             // amount to trade is too small - don't bother, also don't output this to the logfile
-            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+            console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minMATICToTrade} in MATIC equivalents`);
             return;
         }
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
         appendTradeLog(logstream, `Spending ${textAmountToSpend} ${thisTradePair.sellTicker} tokens on ${thisTradePair.buyTicker}\n`);
-        // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+        // look at the mid and compare to direct bid and viaMATIC bid (if appropriate)
         let bestPriceAndRoute = await getBestPrice(thisTradePair.buyAddress, thisTradePair.buyDecimals, thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
         if (bestPriceAndRoute[0] === -1) {
             appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
@@ -888,15 +888,15 @@ const executeTSL = async (thisTradePair, newPrice, logstream) => {
         initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let buyAssetBalance = initialBalances[0];
         let amountToSpend = amountToSell(thisTradePair.buyAddress, thisTradePair.buyDecimals, buyAssetBalance, thisTradePair.buyMoonBag);
-        let bnbEquivalent = await getBnbEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
-        if (bnbEquivalent < minBnbToTrade) {
+        let MATICEquivalent = await getMATICEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
+        if (MATICEquivalent < minMATICToTrade) {
             // amount to trade is too small - don't bother
-            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+            console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minMATICToTrade} in MATIC equivalents`);
             return;
         } 
         let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
         appendTradeLog(logstream, `Selling ${textAmountToSpend} ${thisTradePair.buyTicker} tokens for ${thisTradePair.sellTicker}\n`);
-        // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+        // look at the mid and compare to direct bid and viaMATIC bid (if appropriate)
         let bestPriceAndRoute = await getBestPrice(thisTradePair.sellAddress, thisTradePair.sellDecimals, thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
         if (bestPriceAndRoute[0] === -1) {
             appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
@@ -964,10 +964,10 @@ const executeSmartRange = async (thisTradePair, newPrice, logstream) => {
             initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
             let sellAssetBalance = initialBalances[1];
             let amountToSpend = amountToSell(thisTradePair.sellAddress, thisTradePair.sellDecimals, sellAssetBalance, thisTradePair.sellMoonBag);
-            let bnbEquivalent = await getBnbEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
-            if (bnbEquivalent < minBnbToTrade) {
+            let MATICEquivalent = await getMATICEquivalent(thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
+            if (MATICEquivalent < minMATICToTrade) {
                 // amount to trade is too small - don't bother, also don't output this to the logfile
-                console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+                console.log(`Can't buy ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minMATICToTrade} in MATIC equivalents`);
                 // set the sell target to be exected buy + profit%
                 tradeParameters[thisTradePair.pairname].sellTargetSR = newPrice * (1 + thisTradePair.profitPctSR / 100);
                 // turn off the buyTriggerSR and the buyTargetSR
@@ -977,7 +977,7 @@ const executeSmartRange = async (thisTradePair, newPrice, logstream) => {
             }
             let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
             appendTradeLog(logstream, `Spending ${textAmountToSpend} ${thisTradePair.sellTicker} tokens on ${thisTradePair.buyTicker}\n`);
-            // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+            // look at the mid and compare to direct bid and viaMATIC bid (if appropriate)
             let bestPriceAndRoute = await getBestPrice(thisTradePair.buyAddress, thisTradePair.buyDecimals, thisTradePair.sellAddress, thisTradePair.sellDecimals, amountToSpend);
             if (bestPriceAndRoute[0] === -1) {
                 appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
@@ -1034,10 +1034,10 @@ const executeSmartRange = async (thisTradePair, newPrice, logstream) => {
             initialBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
             let buyAssetBalance = initialBalances[0];
             let amountToSpend = amountToSell(thisTradePair.buyAddress, thisTradePair.buyDecimals, buyAssetBalance, thisTradePair.buyMoonBag);
-            let bnbEquivalent = await getBnbEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
-            if (bnbEquivalent < minBnbToTrade) {
+            let MATICEquivalent = await getMATICEquivalent(thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
+            if (MATICEquivalent < minMATICToTrade) {
                 // amount to trade is too small - don't bother
-                console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minBnbToTrade} in BNB equivalents`);
+                console.log(`Can't sell ${thisTradePair.buyTicker} because it's below the minimum ${globalParams._minMATICToTrade} in MATIC equivalents`);
                 // set the buy target to be lesser of: original buy Target and exected sell - profit %
                 tradeParameters[thisTradePair.pairname].buyTargetSR = Math.min(thisTradePair.buyInitialTargetSR, newPrice * (1 - thisTradePair.profitPctSR / 100));
                 // turn off the buyTriggerSR and the buyTargetSR
@@ -1047,7 +1047,7 @@ const executeSmartRange = async (thisTradePair, newPrice, logstream) => {
             } 
             let textAmountToSpend = (amountToSpend/(web3.utils.toBN(10).pow(web3.utils.toBN(thisTradePair.sellDecimals)))).toPrecision(6) 
             appendTradeLog(logstream, `Selling ${textAmountToSpend} ${thisTradePair.buyTicker} tokens for ${thisTradePair.sellTicker}\n`);
-            // look at the mid and compare to direct bid and viabnb bid (if appropriate)
+            // look at the mid and compare to direct bid and viaMATIC bid (if appropriate)
             let bestPriceAndRoute = await getBestPrice(thisTradePair.sellAddress, thisTradePair.sellDecimals, thisTradePair.buyAddress, thisTradePair.buyDecimals, amountToSpend);
             if (bestPriceAndRoute[0] === -1) {
                 appendTradeLog(logstream, `NO BIDS POSSIBLE FROM THE LPROUTER`)
@@ -1138,7 +1138,7 @@ const init = async () => {
             if (checkInitialSettings(tradeParameters[thisTradePair], midPrice)) {
                 verboseDialog = await verboseTradeDescription(globalParams, tradeParameters[thisTradePair], midPrice);
                 //  create log file
-                var tickerStream = fs.createWriteStream(`TradeLogPCS.${dateStamp}.txt`, {flags: 'a'});
+                var tickerStream = fs.createWriteStream(`TradeLogSushi.${dateStamp}.txt`, {flags: 'a'});
                 appendTradeLog(tickerStream, verboseDialog);
                 startExecution = await confirmDialog(`If details look correct`)
                 if (startExecution === 'Y' | startExecution === 'y') {
@@ -1164,10 +1164,10 @@ const init = async () => {
     if (executionCount > 0) {
         // there's at least one live trade - start looping through and checking price triggers etc.
         while (executionCount > 0) {
-            let walletBNBBalance = await getWalletBalance(wbnbAddress, walletAddress)
-            let bnbTokenBalance = (walletBNBBalance / (10 ** 18)).toPrecision(6)
-            if (bnbTokenBalance <= globalParams._haltOnLowBNB) { 
-                appendTradeLog(tickerStream, `Low BNB Balance in wallet: ${bnbTokenBalance} BNB - execution halted`)
+            let walletMATICBalance = await getWalletBalance(wMATICAddress, walletAddress)
+            let MATICTokenBalance = (walletMATICBalance / (10 ** 18)).toPrecision(6)
+            if (MATICTokenBalance <= globalParams._haltOnLowMATIC) { 
+                appendTradeLog(tickerStream, `Low MATIC Balance in wallet: ${MATICTokenBalance} MATIC - execution halted`)
                 return 
             }
             await delay(5000);

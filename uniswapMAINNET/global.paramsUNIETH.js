@@ -5,20 +5,21 @@ const globalParams = {
     _liveTrading : true,
 
     // Global parameters
-    _keepBNB :   0.1,   // This will always keep this amount of BNB in your wallet - don't set it to zero! Min of 0.1
-    _minBnbToTrade : 0.01, // This will stop you trading $0.01 trades and paying $0.15 in gas!
-    _haltOnLowBNB: 0.01,
+    _keepETH :   0.1,   // This will always keep this amount of ETH in your wallet - don't set it to zero! Min of 0.1
+    _minETHToTrade : 0.05, // This will stop you trading $1 trades and paying $15 in gas!
+    _haltOnLowETH: 0.1,
 
-    _rpcurl : 'https://bsc-dataseed1.binance.org/',
-    _chainID : 56,
+    _rpcurl : '', // SIGN UP AND PUT YOUR URL IN THE .ENV FILE
+    _chainID : 1,
 
     // Global Addresses
-    _routerLPV2 :'0x10ED43C718714eb63d5aA57B78B54704E256024E',   // PancakeSwap Router v2
-    _wbnbAddress : '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',  // WBNB
-    _busdAddress : '0xe9e7cea3dedca5984780bafc599bd69add087d56', // BUSD
+    _routerLPV2 :'0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',   // UniSwap Router v2
+    // FYI the address of router v3 is: '0xE592427A0AEce92De3Edee1F18E0157C05861564'
+    _wETHAddress : '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',  // WETH
+    _usdcAddress : '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // usdc
 
     // Trading parameters
-    _gasPrice :  5, // 5 is generally ok for BSC, but 6 may be needed for volatile markets
+    _gasPrice :  10, 
     _executionSlippage :  1, // This is in percent 1 (1%) may be too tight, try using 2
     _bidToMidSlippage : 1, //This is the price impact of the size of your trade, the trade may fail because the size is too big or the liquidity pool is too shallow
                         // set to 0 to ignore price impact of the size of the trade

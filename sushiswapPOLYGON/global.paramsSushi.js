@@ -5,20 +5,20 @@ const globalParams = {
     _liveTrading : true,
 
     // Global parameters
-    _keepBNB :   0.1,   // This will always keep this amount of BNB in your wallet - don't set it to zero! Min of 0.1
-    _minBnbToTrade : 0.01, // This will stop you trading $0.01 trades and paying $0.15 in gas!
-    _haltOnLowBNB: 0.01,
+    _keepMATIC :   20,   // This will always keep this amount of MATIC in your wallet - don't set it to zero! Min of 0.1
+    _minMATICToTrade : 2, // This will stop you trading $0.01 trades and paying $0.15 in gas!
+    _haltOnLowMATIC: 2,
 
-    _rpcurl : 'https://bsc-dataseed1.binance.org/',
-    _chainID : 56,
+    _rpcurl : 'https://rpc-mainnet.matic.network',
+    _chainID : 137,
 
     // Global Addresses
-    _routerLPV2 :'0x10ED43C718714eb63d5aA57B78B54704E256024E',   // PancakeSwap Router v2
-    _wbnbAddress : '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',  // WBNB
-    _busdAddress : '0xe9e7cea3dedca5984780bafc599bd69add087d56', // BUSD
+    _routerLPV2 :'0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506',   // SushiSwap Router v2
+    _wMATICAddress : '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270',  // WMATIC
+    _usdcAddress : '0x2791bca1f2de4661ed88a30c99a7a9449aa84174', // usdc
 
     // Trading parameters
-    _gasPrice :  5, // 5 is generally ok for BSC, but 6 may be needed for volatile markets
+    _gasPrice :  1, // 1 is generally ok for MATIC, but 1.5 or 2 may be needed for volatile markets
     _executionSlippage :  1, // This is in percent 1 (1%) may be too tight, try using 2
     _bidToMidSlippage : 1, //This is the price impact of the size of your trade, the trade may fail because the size is too big or the liquidity pool is too shallow
                         // set to 0 to ignore price impact of the size of the trade
