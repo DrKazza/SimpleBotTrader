@@ -57,6 +57,8 @@ const routerV2 = new ethers.Contract (lpRouter, [
     'function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)'
     ], account );
 const minMATICToTrade = ethers.utils.parseUnits(globalParams._minMATICToTrade.toString(), 18)
+const useDynamicGas = globalParams._dynamicGasPrice;
+const maxGasPrice = ethers.utils.parseUnits(globalParams._maxGasPrice.toString(), 9);
 
 
 
@@ -164,7 +166,7 @@ const getApproval = async (thisTokenAddress, approvalLimit, walletAccount, liqui
             approvalLimit,
             {
                 gasLimit: thisGasLimit, 
-                gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
+                gasPrice: thisGasPrice
             });
         console.log(approveResponse);
         return;
@@ -187,7 +189,7 @@ const swapExactMATICForTokens = async (buyAddress, tokensIn, tradeSlippage, this
             {
                 value: amountIn,
                 gasLimit: thisGasLimit, 
-                gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
+                gasPrice: thisGasPrice
             }
         )
         console.log(`Transaction Submitted...`);
@@ -211,7 +213,7 @@ const swapExactTokensForMATIC = async (sellAddress, tokensIn, tradeSlippage, thi
             Date.now() + 1000 * 60 * 10, //10 minutes
             {
                 gasLimit: thisGasLimit, 
-                gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
+                gasPrice: thisGasPrice
             }
         )
         console.log(`Transaction Submitted...`);
@@ -236,7 +238,7 @@ const swapExactTokForTok = async (buyAddress, sellAddress, tokensIn, tradeSlippa
             Date.now() + 1000 * 60 * 10, //10 minutes
             {
                 gasLimit: thisGasLimit, 
-                gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
+                gasPrice: thisGasPrice
             }
         )
         console.log(`Transaction Submitted...`);
@@ -261,7 +263,7 @@ const swapExactTokForTokViaMATIC = async (buyAddress, sellAddress, tokensIn, tra
             Date.now() + 1000 * 60 * 10, //10 minutes
             {
                 gasLimit: thisGasLimit, 
-                gasPrice: ethers.utils.parseUnits(thisGasPrice.toString(), 'gwei')
+                gasPrice: thisGasPrice
             }
         )
         console.log(`Transaction Submitted...`);
@@ -290,13 +292,33 @@ const getPairBalances = async (buyTokenAddress, sellTokenAddress, walletAddress)
     return [buyBalance, sellBalance]
 }
 
+const calculateGasPrice = async () => {
+    if (useDynamicGas) {
+        let spotPx = await web3.eth.getGasPrice();
+        let spotPxBN = ethers.BigNumber.from(spotPx.toString())
+        if (spotPxBN.gte(maxGasPrice)) {
+            console.log(`Gas Price: ${spotPxBN}, Max Gas: ${maxGasPrice}`)
+            return -1
+        } else {
+            return spotPxBN
+        }
+    } else {
+        return maxGasPrice
+    }
+}
+
 const confirmAndExtendAllowance = async (thisTokenAddress, walletAddress, liquidityPoolAddress, thisTokenTicker) => {
     if (thisTokenAddress === wMATICAddress) { return true; } else {        
         let currentAllowance = await getAllowance(thisTokenAddress, walletAddress, liquidityPoolAddress);
         let curAllowBN = ethers.BigNumber.from(currentAllowance.toString())
         if (curAllowBN.lte(sensibleLimit)) {
             console.log(`Getting approval for ${thisTokenTicker}`)
-            await getApproval(thisTokenAddress, maxUint256, account, lpRouter, globalParams._gasPrice, globalParams._gasApprovalLimit);
+            let thisGas = await calculateGasPrice()
+            if (thisGas === -1) {
+                console.log(`Gas Price too high`)
+            } else {
+                await getApproval(thisTokenAddress, maxUint256, account, lpRouter, thisGas, globalParams._gasApprovalLimit);
+            }
             return true;
         } else {
             console.log(`No Approval needed for ${thisTokenTicker}`)
@@ -304,7 +326,6 @@ const confirmAndExtendAllowance = async (thisTokenAddress, walletAddress, liquid
         }
     }
 }
-
 
 const getMidPrice = async (buyAddress, buyDecimals, sellAddress, sellDecimals) => {
     try {
@@ -417,7 +438,12 @@ const executeBSPL = async (thisTradePair, newPrice, logstream) => {
             }
         }
         appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
-        await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        let thisGas = await calculateGasPrice()
+        if (thisGas === -1) {
+            console.log(`Gas Price too high`)
+        } else {
+            await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, thisGas, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        }
         let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress);
         let actualPurchase = new BN(finalBalances[0]);
         actualPurchase = (actualPurchase - initialBalances[0]) / (10 ** thisTradePair.buyDecimals);
@@ -463,7 +489,12 @@ const executeBSPL = async (thisTradePair, newPrice, logstream) => {
             }
         }
         appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
-        await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        let thisGas = await calculateGasPrice()
+        if (thisGas === -1) {
+            console.log(`Gas Price too high`)
+        } else {
+            await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, thisGas, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        }
         let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let actualPurchase = new BN(finalBalances[1])
         actualPurchase = (actualPurchase - initialBalances[1]) / (10 ** thisTradePair.sellDecimals)
@@ -524,7 +555,12 @@ const executeDCB = async (thisTradePair, newPrice, logstream) => {
             }
         }
         appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
-        await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        let thisGas = await calculateGasPrice()
+        if (thisGas === -1) {
+            console.log(`Gas Price too high`)
+        } else {
+            await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, thisGas, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        }
         tradeParameters[thisTradePair.pairname].sellPriceDCB = bestPriceAndRoute[0] * (1 + thisTradePair.sellPctDCB / 100);
         let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress);
         let actualPurchase = new BN(finalBalances[0]);
@@ -572,7 +608,12 @@ const executeDCB = async (thisTradePair, newPrice, logstream) => {
             }
         }
         appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
-        await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        let thisGas = await calculateGasPrice()
+        if (thisGas === -1) {
+            console.log(`Gas Price too high`)
+        } else {
+            await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, thisGas, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        }
         if (thisTradePair.stopAfterOneBounceDCB) {
             // kill the process altogether
             tradeParameters[thisTradePair.pairname].activate = false;
@@ -646,7 +687,12 @@ const executePRT = async (thisTradePair, newPrice, logstream) => {
             }
         }
         appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
-        await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        let thisGas = await calculateGasPrice()
+        if (thisGas === -1) {
+            console.log(`Gas Price too high`)
+        } else {
+            await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, thisGas, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        }
         tradeParameters[thisTradePair.pairname].sellPricePRT = bestPriceAndRoute[0] * (1 + thisTradePair.sellPctPRT / 100);
         let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress);
         let actualPurchase = new BN(finalBalances[0]);
@@ -692,7 +738,12 @@ const executePRT = async (thisTradePair, newPrice, logstream) => {
             }
         }
         appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
-        await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        let thisGas = await calculateGasPrice()
+        if (thisGas === -1) {
+            console.log(`Gas Price too high`)
+        } else {
+            await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, thisGas, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        }
         tradeParameters[thisTradePair.pairname].buyPricePRT = bestPriceAndRoute[0] * (1 - thisTradePair.buyPctPRT / 100);
         let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let actualPurchase = new BN(finalBalances[1])
@@ -746,7 +797,12 @@ const executeSL = async (thisTradePair, newPrice, logstream) => {
             }
         }
         appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
-        await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        let thisGas = await calculateGasPrice()
+        if (thisGas === -1) {
+            console.log(`Gas Price too high`)
+        } else {
+            await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, thisGas, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        }
         let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress);
         let actualPurchase = new BN(finalBalances[0]);
         actualPurchase = (actualPurchase - initialBalances[0]) / (10 ** thisTradePair.buyDecimals);
@@ -793,7 +849,12 @@ const executeSL = async (thisTradePair, newPrice, logstream) => {
             }
         }
         appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
-        await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        let thisGas = await calculateGasPrice()
+        if (thisGas === -1) {
+            console.log(`Gas Price too high`)
+        } else {
+            await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, thisGas, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        }
         let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
         let actualPurchase = new BN(finalBalances[1])
         actualPurchase = (actualPurchase - initialBalances[1]) / (10 ** thisTradePair.sellDecimals)
@@ -861,8 +922,12 @@ const executeTSL = async (thisTradePair, newPrice, logstream) => {
             }
         }
         appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
-        await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
-
+        let thisGas = await calculateGasPrice()
+        if (thisGas === -1) {
+            console.log(`Gas Price too high`)
+        } else {
+            await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, thisGas, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        }
         // when you execute a buy you turn off the buy signal and turn on the sell signal
         // likewise when you sell you turn on the buy and turn off the sell
         tradeParameters[thisTradePair.pairname].buyPriceTSL = 0;
@@ -912,7 +977,12 @@ const executeTSL = async (thisTradePair, newPrice, logstream) => {
             }
         }
         appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
-        await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        let thisGas = await calculateGasPrice()
+        if (thisGas === -1) {
+            console.log(`Gas Price too high`)
+        } else {
+            await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, thisGas, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+        }
         // when you execute a buy you turn off the buy signal and turn on the sell signal
         // likewise when you sell you turn on the buy and turn off the sell
         tradeParameters[thisTradePair.pairname].buyPriceTSL = bestPriceAndRoute[0] * (1 + thisTradePair.buySTOPPctTSL / 100);
@@ -992,7 +1062,12 @@ const executeSmartRange = async (thisTradePair, newPrice, logstream) => {
                 }
             }
             appendTradeLog(logstream, ` About to hit up a buy trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
-            await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+            let thisGas = await calculateGasPrice()
+            if (thisGas === -1) {
+                console.log(`Gas Price too high`)
+            } else {
+                await executeTrade(thisTradePair.buyAddress, thisTradePair.sellAddress, amountToSpend, thisTradePair.overrideSlippage, thisGas, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+            }
             // set the sell target to be exected buy + profit%
             tradeParameters[thisTradePair.pairname].sellTargetSR = newPrice * (1 + thisTradePair.profitPctSR / 100);
             // turn off the buyTriggerSR and the buyTargetSR
@@ -1063,7 +1138,12 @@ const executeSmartRange = async (thisTradePair, newPrice, logstream) => {
                 }
             }
             appendTradeLog(logstream, ` About to hit up a sell trade hoping for ${bestPriceAndRoute[0].toPrecision(6)}\n`);
-            await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, globalParams._gasPrice, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+            let thisGas = await calculateGasPrice()
+            if (thisGas === -1) {
+                console.log(`Gas Price too high`)
+            } else {
+                await executeTrade(thisTradePair.sellAddress, thisTradePair.buyAddress, amountToSpend, thisTradePair.overrideSlippage, thisGas, globalParams._gasTradingLimit, bestPriceAndRoute[1], logstream)
+            }
             let finalBalances = await getPairBalances(thisTradePair.buyAddress, thisTradePair.sellAddress, walletAddress)
             let actualPurchase = new BN(finalBalances[1])
             actualPurchase = (actualPurchase - initialBalances[1]) / (10 ** thisTradePair.sellDecimals)

@@ -18,7 +18,10 @@ const globalParams = {
     _busdAddress : '0xe9e7cea3dedca5984780bafc599bd69add087d56', // BUSD
 
     // Trading parameters
-    _gasPrice :  5, // 5 is generally ok for BSC, but 6 may be needed for volatile markets
+    _dynamicGasPrice : true, 
+    // if you set this to true then you will use the prevailing gas price but execution will NOT happen if it's above the gas price specified below
+    // so if you set gas price to 15, it will spend anything UPTO but not exceeding 15
+    _maxGasPrice :  7, // 5 is generally ok for BSC, but 6 may be needed for volatile markets
     _executionSlippage :  1, // This is in percent 1 (1%) may be too tight, try using 2
     _bidToMidSlippage : 1, //This is the price impact of the size of your trade, the trade may fail because the size is too big or the liquidity pool is too shallow
                         // set to 0 to ignore price impact of the size of the trade

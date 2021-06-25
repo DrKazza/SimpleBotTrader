@@ -48,8 +48,8 @@ const checkVariableValidity = (globalParams, thisTradeParams) => {
             isBadVariable(`_gasTradingLimit`, `Needs to be 170,000 or higher to go through`);
             return false;
         }
-        if (!isNumberMoreThanEq(globalParams._gasPrice, 1)) {
-            isBadVariable(`_gasPrice`, `Needs to be 1 or higher to prevent worthless trades`);
+        if (!isNumberMoreThanEq(globalParams._maxGasPrice, 10)) {
+            isBadVariable(`_maxGasPrice`, `Needs to be 10 or higher to get trades to process`);
             return false;
         }
     

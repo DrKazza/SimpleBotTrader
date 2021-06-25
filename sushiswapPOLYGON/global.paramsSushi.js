@@ -18,7 +18,10 @@ const globalParams = {
     _usdcAddress : '0x2791bca1f2de4661ed88a30c99a7a9449aa84174', // usdc
 
     // Trading parameters
-    _gasPrice :  1, // 1 is generally ok for MATIC, but 1.5 or 2 may be needed for volatile markets
+    _dynamicGasPrice : true, 
+    // if you set this to true then you will use the prevailing gas price but execution will NOT happen if it's above the gas price specified below
+    // so if you set gas price to 15, it will spend anything UPTO but not exceeding 15
+    _maxGasPrice :  3, // 3 is generally the max for MATIC, but more may be needed for volatile markets
     _executionSlippage :  1, // This is in percent 1 (1%) may be too tight, try using 2
     _bidToMidSlippage : 1, //This is the price impact of the size of your trade, the trade may fail because the size is too big or the liquidity pool is too shallow
                         // set to 0 to ignore price impact of the size of the trade

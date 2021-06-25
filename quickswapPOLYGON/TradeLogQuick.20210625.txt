@@ -1,0 +1,13 @@
+11:29:01 - 
+ ************** 
+About to start a Smart Range Trading strategy:
+Buying as many ADDY using WMATIC tokens as possible around a price of 38.
+            While also holding back 0 WMATIC.
+Selling as many ADDY tokens as possible for WMATIC tokens 5% above the last purchase.
+            While also holding back 0 ADDY.
+Buys will let the market sell off will wait for a reversal of 0.5% before it executes, ditto sells in a rally.
+Always keeping approx 20 MATIC in the wallet for gas etc.
+
+Initial Price for ADDY Token = 42.7708 (WMATIC/ADDY).
+ Inverse: 0.0233804 (ADDY/WMATIC)
+11:29:09 - Execution confirmed for pair3
