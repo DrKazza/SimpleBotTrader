@@ -56,7 +56,7 @@ const routerV2 = new ethers.Contract (lpRouter, [
     'function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)',
     'function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)'
     ], account );
-const minMATICToTrade = ethers.utils.parseUnits(globalParams._minMATICToTrade.toString(), 18)
+const minMATICToTrade = globalParams._minMATICToTrade
 const useDynamicGas = globalParams._dynamicGasPrice;
 const maxGasPrice = ethers.utils.parseUnits(globalParams._maxGasPrice.toString(), 9);
 
@@ -357,10 +357,10 @@ const amountToSell = (assetAddress, assetDecimals, assetBalance, moonBag) => {
 
 const getMATICEquivalent = async (thisTokenAddress, thisTokenDecimals, tokenAmount) => {
     if (thisTokenAddress === wMATICAddress) {
-        return tokenAmount;
+        return (tokenAmount / (10 ** 18));
     } else {
         let midPrice = await getDirectMid(thisTokenAddress, thisTokenDecimals, wMATICAddress, 18);
-        return tokenAmount * midPrice;
+        return tokenAmount / midPrice / (10 ** thisTokenDecimals);
     }
 }
 

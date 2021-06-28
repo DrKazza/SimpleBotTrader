@@ -88,8 +88,8 @@ const tradeParameters = {
 
             // TRADE TYPE 6:    SMART-RANGE
         buyInitialTargetSR : 13.8,    // where the initial buy starts
-        profitPctSR : 5,   // profit targe percentage
-        reversalPctSR : 0.5   // amount the trailing stop needs to reverse by to get triggered
+        profitPctSR : 0.1,   // profit targe percentage
+        reversalPctSR : 0.01   // amount the trailing stop needs to reverse by to get triggered
 
         //don't forget NO comma after the last variable
     },

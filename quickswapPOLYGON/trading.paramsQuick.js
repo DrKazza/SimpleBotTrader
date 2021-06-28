@@ -48,15 +48,15 @@ const tradeParameters = {
     pair3: {
         activate: true,
         buyAddress: '0xc3fdbadc7c795ef1d6ba111e06ff8f16a20ea539',  
-        sellAddress: 'MATIC', 
+        sellAddress: '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619', 
         buyMoonBag: 0, // Don't ever trade this number of buyAddress coins
         sellMoonBag: 0, // Don't ever trade this number of sellAddress coins
 
         tradeType: 'SMART-RANGE',
 
-        buyInitialTargetSR : 38,    // where the initial buy starts
+        buyInitialTargetSR : 0.025,    // where the initial buy starts
         profitPctSR : 5,   // profit targe percentage
-        reversalPctSR : 0.5   // amount the trailing stop needs to reverse by to get triggered
+        reversalPctSR : 1   // amount the trailing stop needs to reverse by to get triggered
 
         //don't forget NO comma after the last variable
     },
