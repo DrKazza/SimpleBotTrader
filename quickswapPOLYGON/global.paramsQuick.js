@@ -9,7 +9,7 @@ const globalParams = {
     _minMATICToTrade : 2, // This will stop you trading $0.01 trades and paying $0.15 in gas!
     _haltOnLowMATIC: 2,
 
-    _rpcurl : 'https://rpc-mainnet.matic.network',
+    _rpcurl : 'https://rpc-mainnet.maticvigil.com/',
     _chainID : 137,
 
     // Global Addresses
